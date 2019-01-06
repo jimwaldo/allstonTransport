@@ -1,3 +1,43 @@
+12/28/18
+
+Time to work on getting the class times in some sort of shape. The core of this will be the file course_times.csv,
+which has the following data layout:
+
+0 TERM
+
+1 CLASS_NUM
+
+2 COURSE_ID
+
+3 SUBJECT
+
+4 CATALOG
+
+5 SECTION
+
+6 DESCRIPTION
+
+7 COMPONENT
+
+8 Mtg Start
+
+9 Mtg End
+
+10 Mon
+
+11 Tues
+
+12 Wed
+
+13 Thurs
+
+14 Fri
+
+15 Sat
+
+16 Sun
+
+
 12/27/18
 
 Splitting by term has simplified things considerably-- the class nums are unique within a semester. A course may 
