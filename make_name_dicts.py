@@ -121,3 +121,12 @@ def get_subjects(fname_in):
     fout.close()
     fin.close()
     
+def build_class_set(sub_set, class_set, enroll_in):
+    for l in enroll_in:
+        if l[3] in sub_set:
+            class_num = l[3] + ' ' + l[4]
+            class_set.add(class_num)
+        
+    return class_set
+
+    

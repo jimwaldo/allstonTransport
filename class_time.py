@@ -8,6 +8,16 @@ Created on Friday, Dec 28 2018
 A set of classes that define the data structures used to chart the number and times of crossing the river based
 on assuming that the past will reflect the future.
 """
+from enum import Enum
+
+class days(Enum):
+    Monday = 0
+    Tuesday = 1
+    Wednesday = 2
+    Thursday = 3
+    Friday = 4
+    Saturday = 5
+    Sunday = 6
 
 def normalize_time(t):
     '''
@@ -128,7 +138,8 @@ class transition(object):
         :param s_sched: a student_sched object containing the student's schedule
         '''
         self.days = [[],[],[],[],[],[],[]]
-        self.trans = [0,0,0,0,0,0,0]
+        self.to_allston_trans = [0,0,0,0,0,0,0]
+        self.to_cambridge_trans = [0,0,0,0,0,0,0]
         self.trans_time = [[],[],[],[],[],[],[]]
         days = s_sched.days
         for i in range(0,7):
@@ -142,7 +153,20 @@ class transition(object):
                 where = 'c'
                 for j in range(0,len(day)):
                     if day[j] != where:
-                        self.trans[i] += 1
+                        if day[j] == 'a':
+                            self.to_allston_trans += 1
+                        else:
+                            self.to_cambridge_trans += 1
                         self.trans_time[i].append(s_sched.days[i][j].start_t)
                         where = day[j]
+
+    def get_trans_times(self, on_day):
+        return self.trans_time[on_day.value]
+
+    def get_trans_time_counts(self, on_day):
+        return self.days[on_day.value]
+
+    def get_trans_count(self, on_day):
+        return self.trans[on_day.value]
+
 
