@@ -16,16 +16,26 @@ import make_name_dicts as md
 import class_time as ct
 import sys
 
+def build_trans_d (st_sched_d):
+    """
+    Build a transition dictionary for each student. The dictionary will be indexed by the student, and will
+    have as value the transition objects from Cambridge to Allston or back for each day of the week and time of
+    day for that student
+    :param st_sched_d: A dictionary of student schedules
+    :return: A dictionary of transitions from one side of the river to the other
+    """
+    ret_d = {}
+    for k,v in st_sched_d.items():
+        ret_d[k] = ct.transition(v)
+
+    return ret_d
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Usage: python build_transition_d.py student_schedule_d.pkl')
         sys.exit(2)
 
     schedule_d = md.unpickle_data(sys.argv[1])
-    transition_d = {}
-
-    for k, v in schedule_d.items():
-        transition_d[k] = ct.transition(v)
-
+    transition_d = build_trans_d(schedule_d)
     md.pickle_data('transition_d.pkl', transition_d)
 

@@ -25,25 +25,26 @@ if __name__ == '__main__':
     f_p = open(sys.argv[2], 'rb')
     seas_subject_s = pickle.load(f_p)
     f_p.close()
-
+    #TODO: Currently the determination of what classes are in Allston is done on a subject basis. This
+    #    should be changed to allow a set of classes to be passed in to allow fine-grained control
 
     h = next(cin)
     student_s = set()
-    seas_class_s = set()
-    all_seas_student_class_s = set()
+    allston_class_s = set()
+    allston_student_class_s = set()
 
     for l in cin:
         if l[3] in seas_subject_s:
-            seas_class_s.add(l[1])
+            allston_class_s.add(l[1])
             student_s.add(l[8])
 
     fin.seek(0)
     h = next(cin)
     for l in cin:
         if l[8] in student_s:
-            all_seas_student_class_s.add(l[1])
+            allston_student_class_s.add(l[1])
     fin.close()
 
-    mnd.pickle_data('SEAS_class_set.pkl', seas_class_s)
-    mnd.pickle_data('SEAS_student_set.pkl', student_s)
-    mnd.pickle_data('all_seas_student_classes_set.pkl', all_seas_student_class_s)
+    mnd.pickle_data('Allston_class_set.pkl', allston_class_s)
+    mnd.pickle_data('Allston_student_set.pkl', student_s)
+    mnd.pickle_data('all_allston_student_classes_set.pkl', allston_student_class_s)

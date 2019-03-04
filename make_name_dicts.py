@@ -6,6 +6,10 @@ Created on Wed Dec 12 10:18:18 2018
 @author: waldo
 
 A set of utility routines that make live easier in the rest of the project.
+
+Some of these routines are no longer used; build_faculty_dict was based on the assumption that we could
+identify the faculty that would be teaching in Allston, which turned out to be a bad way to identify 
+the classes that were going to be there. 
 """
 
 import pickle, csv
@@ -122,6 +126,14 @@ def get_subjects(fname_in):
     fin.close()
     
 def build_class_set(sub_set, class_set, enroll_in):
+    """
+    Add to a set containing the classes, identified by name and class number, identified in a .csv that has the format
+    of the enrollment data, that are in the set of subjects indicated.
+    :param sub_set: A set of subjects from which to assemble the class set of courses in that subject
+    :param class_set: A set of classes to add courses in the subject set
+    :param enroll_in: a .csv file in the format of the enrollment set.
+    :return: a set of classes, identified as the subject name and catalog number
+    """
     for l in enroll_in:
         if l[3] in sub_set:
             class_num = l[3] + ' ' + l[4]

@@ -43,16 +43,25 @@ def normalize_time(t):
     return ret_t
 
 
-class course_time (object):
-    '''
+class course_time(object):
+    """
+    The object used to represent the time, place, and days that a class meets. The object contains the course_num,
+    which is a common identifier for the enrollment and course_time files, the start and stop time for the class
+    normalized to a 24-hour clock, the place the class meets (either a for Allston or c for Cambridge) and a list
+    of booleans indicating the days on which the course is taught. This is created one-per-course, and used to build
+    the student schedules.
+    """
 
-    '''
     def __init__(self, csv_line, in_Allston):
-        '''
-
-        :param csv_line:
-        :param in_Allston:
-        '''
+        """
+        Create an object that represents the time and place a course is taught. The object contains the class number,
+        which is a common identifier for the enrollment and course_time files, the start and stop time for the class
+        normalized to a 24-hour clock, the place the class meets (either a for Allston or c for Cambridge) and a list
+        of booleans indicating the days on which the course is taught. This is created one-per-course, and used to build
+        the student schedules.
+        :param csv_line: a list of values taken from a csv.reader from the course_time file
+        :param in_Allston: A boolean indicating if the course is taught in Allston
+        """
         self.class_num = csv_line[1]
         self.time_start = normalize_time(csv_line[8])
         self.time_end = normalize_time(csv_line[9])
@@ -61,25 +70,27 @@ class course_time (object):
         else:
             self.where = 'c'
         self.days = []
-        for i in range(10,17):
+        for i in range(10, 17):
             if csv_line[i] == 'Y':
                 self.days.append(True)
             else:
                 self.days.append(False)
 
 class sched_entry(object):
-    '''
+    """
     A class that holds the basic information about a class (assumed unique within a semester), including the class
-    number, the start and stop times, and whether the class is in Allston ('a') or in Cambridge ('c')
-    '''
+    number, the start and stop times, and whether the class is in Allston ('a') or in Cambridge ('c'). This is used when
+    building the schedule for each student; for each day of the week the class meets, one of these objects will appear
+    in the schedule
+    """
     def __init__(self, class_num, start_t, end_t, where):
-        '''
+        """
         Create a schedule entry object
         :param class_num: the number identifying the class
         :param start_t: the start time, in 24 hour format, as a string
         :param end_t: the end time, in 24 hour format, as a string
         :param where: 'a' for Allston, 'c' for Cambridge
-        '''
+        """
         self.class_num = class_num
         self.start_t = start_t
         self.end_t = end_t
@@ -126,6 +137,12 @@ class student_sched(object):
             if len(self.days) > 1:
                 self.days[i].sort(key = lambda x:x.start_t)
 
+class tr_time(object):
+    def __init__(self, tr_to, tr_when):
+        self.tr_to = tr_to
+        self.tr_when = tr_when
+
+
 class transition(object):
     '''
     A class that represents the set of transitions (movements from Cambridge to Allston or back) in a student's schedule.
@@ -134,39 +151,24 @@ class transition(object):
     '''
     def __init__(self, s_sched):
         '''
-        Build a transition object for a student.
+        Build a transition object for a student. A transition object contains a list of dictionaries, one for each day,
+        of when the student moves from one side of the river to the other. The dictionary is keyed by the time of the
+        start of the class to which the student is going, and the value of the dictionary is the location of the class
+        ('a' for Allston, 'c' for Cambridge)
         :param s_sched: a student_sched object containing the student's schedule
         '''
-        self.days = [[],[],[],[],[],[],[]]
-        self.to_allston_trans = [0,0,0,0,0,0,0]
-        self.to_cambridge_trans = [0,0,0,0,0,0,0]
-        self.trans_time = [[],[],[],[],[],[],[]]
-        days = s_sched.days
+        self.trans_time = [{}, {}, {}, {}, {}, {}, {}]
         for i in range(0,7):
-            day = days[i]
+            day = s_sched.days[i]
+            where = 'c'
             for j in range(0,len(day)):
-                self.days[i].append(day[j].where)
-
-        for i in range(0,7):
-            day = self.days[i]
-            if len(day) > 1:
-                where = 'c'
-                for j in range(0,len(day)):
-                    if day[j] != where:
-                        if day[j] == 'a':
-                            self.to_allston_trans += 1
-                        else:
-                            self.to_cambridge_trans += 1
-                        self.trans_time[i].append(s_sched.days[i][j].start_t)
-                        where = day[j]
+                if day[j].where != where:
+                    where = day[j].where
+                    s_time = day[j].start_t
+                    self.trans_time[i][s_time] = where
 
     def get_trans_times(self, on_day):
-        return self.trans_time[on_day.value]
+        return self.trans_time[on_day]
 
-    def get_trans_time_counts(self, on_day):
-        return self.days[on_day.value]
-
-    def get_trans_count(self, on_day):
-        return self.trans[on_day.value]
 
 

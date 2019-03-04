@@ -8,10 +8,11 @@ Created on Wed Dec 26 12:40:03 2018
 Splits a file, handed in as a csv.reader, into files that are separated by
 the term. Assumes that the term is in the form shown in the term_s and term_l
 structures. Creates a file per term, with the same content layout as the incoming
-file. 
+file. The program will discard any lines that don't have as many fields as the header
+for the input file, on the assumption that these lines are corrupted.
 """
 
-import csv
+import csv, sys
 
 def split_file_by_term(from_file, out_name_base):
     
@@ -43,4 +44,13 @@ def split_file_by_term(from_file, out_name_base):
             
     return
 
+if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print('Usage: python split_by_term.py base_file.csv out_file_base')
+        sys.exit(1)
 
+    to_split = open(sys.argv[1],'r')
+    csv_to_split = csv.reader(to_split)
+    base_name = sys.argv[2]
+    split_file_by_term(to_split, base_name)
+    to_split.close()

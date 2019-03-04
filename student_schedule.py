@@ -16,6 +16,14 @@ import make_name_dicts as md
 import sys, csv
 
 def build_sched(csv_in, student_set, class_time_d):
+    """
+    Build a dictionary keyed by student id with value a student schedule that reflects that classes this student is
+    taking.
+    :param csv_in: A csv file of the format supplied by the registrar for all of the courses that semester
+    :param student_set: The set of students for which a schedule should be constructed
+    :param class_time_d: A dictionary indexed by class_num with values course_time objects
+    :return: a dictionary indexed by student id with values a student_schedule object
+    """
     ret_d = {}
     for l in csv_in:
         if l[8] not in student_set:

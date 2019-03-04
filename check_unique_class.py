@@ -4,6 +4,8 @@
 Created on Wed Dec 26 13:02:19 2018
 
 @author: waldo
+A quick and dirty program to see if the set of classes define by class_num is the same as the set defined
+by the combination of the class_num and the course_id.
 """
 import csv, sys
 
