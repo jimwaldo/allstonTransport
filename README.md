@@ -131,3 +131,8 @@ indicate when the student has to cross the river and in which direction (the des
 each day, that is indexed by the time of day with values a list of two integers. The first is the number of students 
 travelling from Cambridge to Allston at that time; the second is the number of students travelling from Allston to 
 Cambridge at that time.
+
+**display_trans.py**: Takes the list of dictionaries of times and transitions built by build_transition_times_d.py and 
+creates a simple bar chart of the times and number of transitions for each day of the week.
+
+**make_ 
