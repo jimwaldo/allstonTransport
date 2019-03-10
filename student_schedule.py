@@ -45,14 +45,11 @@ def build_sched(csv_in, student_set, class_time_d):
     return ret_d
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print ('Usage: python build_student_schedule.py SEAS_student_set.pkl enrollments.csv class_time_d.pkl')
-        sys.exit(2)
 
-    seas_student_set = md.unpickle_data(sys.argv[1])
-    class_time_d = md.unpickle_data(sys.argv[3])
+    seas_student_set = md.unpickle_data('SEAS_student_set.pkl')
+    class_time_d = md.unpickle_data('class_time_d.pkl')
 
-    fin = open(sys.argv[2], 'r')
+    fin = open('enrollments.csv', 'r')
     cin = csv.reader(fin)
     h = next(cin)
 

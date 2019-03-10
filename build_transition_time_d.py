@@ -46,10 +46,6 @@ def build_trans_times(transition_d):
     return trans_time_d
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print ('Usage: python build_course_times.py transition_d.pkl')
-        sys.exit(2)
-
-    trans_d = md.unpickle_data(sys.argv[1])
+    trans_d = md.unpickle_data('transition_d.pkl')
     trans_time_d = build_trans_times(trans_d)
     md.pickle_data('trans_time_d_l.pkl', trans_time_d)

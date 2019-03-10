@@ -5,7 +5,7 @@ Created on 2019-03-05
 
 @author waldo
 
-Takes a list of dictionaries of times and transitions, of the sort created by build_transition_time_d.py, and creates a
+Uses a list of dictionaries of times and transitions, created by build_transition_time_d.py, and creates a
 csv file with the times and transition. Allows importing into a spreadsheet and easy viewing. An alternative to the
 graphical display in display_trans_times.py
 """
@@ -34,13 +34,13 @@ def write_trans_csv(trans_d_l, csv_out):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print (len(sys.argv))
-        print('Usage: python make_csv_transisitons.py trans_time_d_l.pkl out_file.csv')
+        print('Usage: python make_csv_transisitons.py out_file.csv')
         sys.exit(1)
 
-    trans_d_l = md.unpickle_data(sys.argv[1])
-    out_file = open(sys.argv[2], 'w')
+    trans_d_l = md.unpickle_data('trans_time_d_l.pkl')
+    out_file = open(sys.argv[1], 'w')
     c_out = csv.writer(out_file)
     write_trans_csv(trans_d_l, c_out)
     out_file.close()

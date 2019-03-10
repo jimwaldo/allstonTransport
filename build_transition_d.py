@@ -31,11 +31,8 @@ def build_trans_d (st_sched_d):
     return ret_d
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('Usage: python build_transition_d.py student_schedule_d.pkl')
-        sys.exit(2)
 
-    schedule_d = md.unpickle_data(sys.argv[1])
+    schedule_d = md.unpickle_data('student_schedule_d.pkl')
     transition_d = build_trans_d(schedule_d)
     md.pickle_data('transition_d.pkl', transition_d)
 

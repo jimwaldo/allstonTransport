@@ -48,12 +48,12 @@ def plot_trans(a, dict_l, day_name, term_name):
     a.legend()
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('Usage: python display_trans.py trans_time_d_l.pkl term_string')
+    if len(sys.argv) < 2:
+        print('Usage: python display_trans.py term_string')
         sys.exit(2)
 
-    trans_time_d_l = mnd.unpickle_data(sys.argv[1])
-    term = sys.argv[2]
+    trans_time_d_l = mnd.unpickle_data('trans_time_d_l.pkl')
+    term = sys.argv[1]
     disp_num = 0
     for i in range(0, len(trans_time_d_l)):
         if len(trans_time_d_l[i]) > 0:
