@@ -20,7 +20,7 @@ class days(Enum):
     Sunday = 6
 
 START_TIME_CAMBRIDGE = {
-    1: "9:00",
+    1: "09:00",
     2: "10:30",
     3: "12:00",
     4: "13:30",
@@ -40,7 +40,7 @@ END_TIME_CAMBRDIGE = {
 }
 
 START_TIME_ALLSTON = {
-    1: "9:45",
+    1: "09:45",
     2: "11:15",
     3: "12:45",
     4: "14:15",
@@ -136,7 +136,7 @@ class course_time(object):
 
         return False
 
-    def __add_minutes(t, mins):
+    def __add_minutes(self, t, mins):
         """
         A utility function to add minutes to a time.
         :param t: a string in the form "hh:mm" (24 hour clock)
@@ -177,16 +177,24 @@ class course_time(object):
         :return: None
         """
         assert self.where == 'c', "Course not currently in Cambridge"
-        assert self.is_compliant_time(), "Course is not currently in a compliant time slot"
 
-        for (slot, st) in START_TIME_CAMBRIDGE.iteritems():
+        if self.time_start == "":
+            # No start time. Just convert it to Allston
+            self.where = "a"
+            return
+        
+        assert self.is_compliant_time(), "Course is not currently in a compliant time slot: " + self.time_start
+
+        for (slot, st) in START_TIME_CAMBRIDGE.items():
             if self.time_start == st:
                 # We found the start time! Use the slot to get the appropriate start time in Allston
                 self.time_start = START_TIME_ALLSTON[slot]
                 
                 # Now update the time_end. We will hack this by adding 45 minutes. We could
                 # probably do something better principled...
-                self.time_end = add_minutes(self.time_end, 45)
+                self.time_end = self.__add_minutes(self.time_end, 45)
+                
+                self.where = "a"            
                 return
 
         raise AssertionError("Failed to find Cambridge start time: " + self.time_s)
