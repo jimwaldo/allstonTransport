@@ -46,5 +46,5 @@ if __name__ == '__main__':
     fin.close()
 
     mnd.pickle_data('Allston_class_set.pkl', allston_class_s)
-    mnd.pickle_data('Allston_student_set.pkl', student_s)
-    mnd.pickle_data('all_allston_student_classes_set.pkl', allston_student_class_s)
+    mnd.pickle_data('SEAS_student_set.pkl', student_s)
+    mnd.pickle_data('all_seas_student_classes_set.pkl', allston_student_class_s)
