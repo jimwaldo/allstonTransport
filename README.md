@@ -79,14 +79,14 @@ came from the registrar as a single file covering multiple years) into separate 
 
 ######Running the programs
 
-Starting with the enrollment.csv and class_time.csv files supplied by the registrar, and after appropriate cleaning with
+Starting with the enrollment.csv and course_times.csv files supplied by the registrar, and after appropriate cleaning with
 clean_csv.py and split_by_term.py, the first program to be run is split_by_term.py, that will split the enrollment and 
-course time files into directories, one for each term, containing an enrollment.csv and course_time.csv file for the 
+course time files into directories, one for each term, containing an enrollment.csv and course_times.csv file for the 
 courses taught that term.
 
 The next program to run is split_classes_students.py. This takes as input the 
-enrollment.csv file and a python pickle of the set of subjects (department/programs) whose classes will be taught in 
-Allston. **This needs to change; the set of classes should be made an input to this.** This will produce three files:
+enrollment.csv file. It uses the file allston_course_selector.py to determine which classes will be taught in Allston. 
+This will produce three files:
 
 1. Allston_class_set.pkl, which contains a pickle of the set of classes indicated as being taught in Allston
 
