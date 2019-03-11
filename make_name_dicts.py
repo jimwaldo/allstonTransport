@@ -5,7 +5,7 @@ Created on Wed Dec 12 10:18:18 2018
 
 @author: waldo
 
-A set of utility routines that make live easier in the rest of the project.
+A set of utility routines that make life easier in the rest of the project.
 
 Some of these routines are no longer used; build_faculty_dict was based on the assumption that we could
 identify the faculty that would be teaching in Allston, which turned out to be a bad way to identify 
