@@ -30,7 +30,14 @@ def build_ct_d(csv_in, c_filter, allston_c_s):
     ret_d = {}
     for l in csv_in:
         if l[1] in c_filter:
-            ret_d[l[1]] = ct.course_time(l, l[1] in allston_c_s)
+            in_allston = l[1] in allston_c_s
+            cto = ct.course_time(l, False)
+            # if the course is meant to be in Allston, then update it.
+            if in_allston:
+                cto.convert_to_allston()
+
+            ret_d[l[1]] = cto
+
     return ret_d
 
 if __name__ == '__main__':

@@ -1,15 +1,14 @@
 The code in this project is designed to read files containing enrollment data and class 
 time data supplied by the registrar and determine the number of students who will have to 
 cross the Charles based on assumptions of which classes will be taught in the new SEC building.
-Note that the model used here is crude and will give at best a rought approximation of what the
+Note that the model used here is crude and will give at best a rough approximation of what the
 traffic will actually be.
 
 ##### Input files
 
 This code works on files supplied by the registrar/my.harvard group. There are two kinds of .csv files provided, the
 enrollment files and the course-time files. The enrollment files have one line per student enrolled in a course, with
-each line having the following format (where the number indicates
-the index of the field, followed by the description):
+each line having the following format (where the number indicates the index of the field, followed by the description):
 
 0 TERM in the format YYYY {Spring,Fall}
 
@@ -33,7 +32,7 @@ same section number.
 
 9 INSTRUCTOR the HUID of the instructor of the course.
 
-The second file used is the course_time.csv file, that contains informaiton on when the courses are taught. This file has
+The second file used is the course_time.csv file, that contains information on when the courses are taught. This file has
 the format:
 
 0 TERM The term the course was taught, as in the enrollment file
@@ -80,14 +79,14 @@ came from the registrar as a single file covering multiple years) into separate 
 
 ######Running the programs
 
-Starting with the enrollment.csv and class_time.csv files supplied by the registrar, and after appropriate cleaning with
+Starting with the enrollment.csv and course_times.csv files supplied by the registrar, and after appropriate cleaning with
 clean_csv.py and split_by_term.py, the first program to be run is split_by_term.py, that will split the enrollment and 
-course time files into directories, one for each term, containing an enrollement.csv and course_time.csv file for the 
+course time files into directories, one for each term, containing an enrollment.csv and course_times.csv file for the 
 courses taught that term.
 
 The next program to run is split_classes_students.py. This takes as input the 
-enrollment.csv file and a python pickle of the set of subjects (department/programs) whose classes will be taught in 
-Allston. **This needs to change; the set of classes should be made an input to this.** This will produce three files:
+enrollment.csv file. It uses the file allston_course_selector.py to determine which classes will be taught in Allston. 
+This will produce three files:
 
 1. Allston_class_set.pkl, which contains a pickle of the set of classes indicated as being taught in Allston
 
@@ -176,7 +175,7 @@ set of classes the student takes, and an list of lists, one for each day of the 
 including start time, end time, and location (Allston or Cambridge).
 
 **build_transition_d.py**: Using the student schedules built by student_schedule.py, builds a dictionary that allows
-calculation fo the transitions from Allston to Cambridge and back. The dictionary built is keyed by student HUID, and
+calculation of the transitions from Allston to Cambridge and back. The dictionary built is keyed by student HUID, and
 has as a value a transition object for each time the student crosses the river. The transition object, defined in
 class_time.py, contains a list transitions for each day, kept as a list. It also has a list of tr_time objects, which 
 indicate when the student has to cross the river and in which direction (the destination). 

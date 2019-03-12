@@ -19,6 +19,46 @@ class days(Enum):
     Saturday = 5
     Sunday = 6
 
+START_TIME_CAMBRIDGE = {
+    1: "09:00",
+    2: "10:30",
+    3: "12:00",
+    4: "13:30",
+    5: "15:00",
+    6: "16:30",
+    7: "18:00"
+}
+
+END_TIME_CAMBRDIGE = {
+    1: "10:15",
+    2: "11:45",
+    3: "13:15",
+    4: "14:45",
+    5: "16:15",
+    6: "17:45",
+    7: "19:15"
+}
+
+START_TIME_ALLSTON = {
+    1: "09:45",
+    2: "11:15",
+    3: "12:45",
+    4: "14:15",
+    5: "15:45",
+    6: "17:15",
+    7: "18:45"
+}
+
+END_TIME_ALLSTON = {
+    1: "11:00",
+    2: "12:30",
+    3: "14:00",
+    4: "15:30",
+    5: "17:00",
+    6: "18:30",
+    7: "20:00"
+}
+
 def normalize_time(t):
     """
     Takes a string representing time as {h}h:mm:ss {AM|PM} and turns it into a 24 hour time of the form hh:mm. This
@@ -41,7 +81,6 @@ def normalize_time(t):
     min = t[start:start+3]
     ret_t = hr + min
     return ret_t
-
 
 class course_time(object):
     """
@@ -75,6 +114,91 @@ class course_time(object):
                 self.days.append(True)
             else:
                 self.days.append(False)
+
+    
+    def is_compliant_time(self):
+        """
+        Checks whether the course time is compliant with the FAS requirements. Specifically,
+        Cambridge courses must start at the times listed in START_TIME_CAMBRIDGE, and Allston
+        courses must start at the times listed in START_TIME_ALLSTON.
+        We currently only check start times, and do not check other requirements (end times, 
+        days of week, etc.)
+        """
+        if self.where == 'a': 
+            start_time = START_TIME_ALLSTON
+        else:
+            start_time = START_TIME_CAMBRIDGE
+
+        # Just do a linear scan through the start times.
+        for st in start_time.values():
+            if self.time_start == st:
+                return True
+
+        return False
+
+    def __add_minutes(self, t, mins):
+        """
+        A utility function to add minutes to a time.
+        :param t: a string in the form "hh:mm" (24 hour clock)
+        :param mins: an integer number of minutes to add to time
+        :return: a string in the form "hh:mm" (24 hour clock), which is time + mins minutes
+        """
+        start = t.find(':')
+        hr = t[:start]
+        m = t[start+1:start+3]
+
+        m = int(m) + int(mins)
+        if m > 59:
+            m -= 60
+            hr = int(hr) + 1
+            
+        if int(hr) > 23:
+            hr = int(hr) - 24
+
+        # convert them to strings
+        hr = str(hr)
+        m = str(m)
+        
+        if len(hr) < 2:
+            hr = '0' + hr
+        if len(m) < 2:
+            m = '0' + m
+            
+        return hr + ":" + m
+
+        
+    def convert_to_allston(self):
+        """
+        Convert this course time from a Cambridge course to the nearest Allston time slot.
+        This method requires that this course is in Cambridge (self.where == 'c') and is a
+        compliant course time. It will update this object so that the course is now in 
+        Allston (self.where == 'a') and the start and end times will be updated to be the
+        appropriate corresponding Allston start and end times.
+        :return: None
+        """
+        assert self.where == 'c', "Course not currently in Cambridge"
+
+        if self.time_start == "":
+            # No start time. Just convert it to Allston
+            self.where = "a"
+            return
+        
+        assert self.is_compliant_time(), "Course is not currently in a compliant time slot: " + self.time_start
+
+        for (slot, st) in START_TIME_CAMBRIDGE.items():
+            if self.time_start == st:
+                # We found the start time! Use the slot to get the appropriate start time in Allston
+                self.time_start = START_TIME_ALLSTON[slot]
+                
+                # Now update the time_end. We will hack this by adding 45 minutes. We could
+                # probably do something better principled...
+                self.time_end = self.__add_minutes(self.time_end, 45)
+                
+                self.where = "a"            
+                return
+
+        raise AssertionError("Failed to find Cambridge start time: " + self.time_s)
+
 
 class sched_entry(object):
     """
