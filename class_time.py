@@ -9,6 +9,7 @@ A set of classes that define the data structures used to chart the number and ti
 on assuming that the past will reflect the future.
 """
 from enum import Enum
+import warnings
 
 class days(Enum):
     Monday = 0
@@ -82,6 +83,55 @@ def normalize_time(t):
     ret_t = hr + min
     return ret_t
 
+def _time_diff(t, u):
+    """
+    A utility function to compute the difference in minutes 
+    between two times in "hh:mm" (24 hour clock) format
+    :param t: a string in the form "hh:mm" (24 hour clock)
+    :param u: a string in the form "hh:mm" (24 hour clock)
+    :return: an integer, the number of minutes difference between t and u. If t is later than u, this number will be negative.
+    """
+    (th, tm) = _time_to_hm(t)
+    (uh, um) = _time_to_hm(u)
+    return (uh*60+um)-(th*60+tm)
+
+def _time_to_hm(t):
+    """
+    A utility function to convert a string in the form  "hh:mm" (24 hour clock)
+    to a pair of integers (h, m).
+    """
+    start = t.find(':')
+    hr = t[:start]
+    m = t[start+1:start+3]
+    return (int(hr), int(m))
+
+def _add_minutes(t, mins):
+    """
+    A utility function to add minutes to a time.
+    :param t: a string in the form "hh:mm" (24 hour clock)
+    :param mins: an integer number of minutes to add to time
+    :return: a string in the form "hh:mm" (24 hour clock), which is time + mins minutes
+    """
+    (hr, m) = _time_to_hm(t)
+    m = m + int(mins)
+    if m > 59:
+        m -= 60
+        hr = int(hr) + 1
+
+    if hr > 23:
+        hr = hr - 24
+
+    # convert them to strings
+    hr = str(hr)
+    m = str(m)
+
+    if len(hr) < 2:
+        hr = '0' + hr
+    if len(m) < 2:
+        m = '0' + m
+
+    return hr + ":" + m
+
 class course_time(object):
     """
     The object used to represent the time, place, and days that a class meets. The object contains the course_num,
@@ -134,40 +184,9 @@ class course_time(object):
             if self.time_start == st:
                 return True
 
-        return False
-
-    def __add_minutes(self, t, mins):
-        """
-        A utility function to add minutes to a time.
-        :param t: a string in the form "hh:mm" (24 hour clock)
-        :param mins: an integer number of minutes to add to time
-        :return: a string in the form "hh:mm" (24 hour clock), which is time + mins minutes
-        """
-        start = t.find(':')
-        hr = t[:start]
-        m = t[start+1:start+3]
-
-        m = int(m) + int(mins)
-        if m > 59:
-            m -= 60
-            hr = int(hr) + 1
-            
-        if int(hr) > 23:
-            hr = int(hr) - 24
-
-        # convert them to strings
-        hr = str(hr)
-        m = str(m)
+        return False        
         
-        if len(hr) < 2:
-            hr = '0' + hr
-        if len(m) < 2:
-            m = '0' + m
-            
-        return hr + ":" + m
-
-        
-    def convert_to_allston(self):
+    def convert_to_allston(self, course_name=None):
         """
         Convert this course time from a Cambridge course to the nearest Allston time slot.
         This method requires that this course is in Cambridge (self.where == 'c') and is a
@@ -178,27 +197,25 @@ class course_time(object):
         """
         assert self.where == 'c', "Course not currently in Cambridge"
 
+        
         if self.time_start == "":
             # No start time. Just convert it to Allston
             self.where = "a"
             return
+
+        if not self.is_compliant_time():
+            warnings.warn("Course not currently in a compliant time slot: " +course_name + " starts at " + self.time_start)
+
+        # Find the Cambridge timeslot with the minimum distance        
+        val, slot = min((abs(_time_diff(t, self.time_start)), slot) for (slot, t) in START_TIME_CAMBRIDGE.items())
+
+        # Now move it to the corresponding allston slot
+        self.time_start = START_TIME_ALLSTON[slot]
+        self.where = "a"            
         
-        assert self.is_compliant_time(), "Course is not currently in a compliant time slot: " + self.time_start
-
-        for (slot, st) in START_TIME_CAMBRIDGE.items():
-            if self.time_start == st:
-                # We found the start time! Use the slot to get the appropriate start time in Allston
-                self.time_start = START_TIME_ALLSTON[slot]
-                
-                # Now update the time_end. We will hack this by adding 45 minutes. We could
-                # probably do something better principled...
-                self.time_end = self.__add_minutes(self.time_end, 45)
-                
-                self.where = "a"            
-                return
-
-        raise AssertionError("Failed to find Cambridge start time: " + self.time_s)
-
+        # Now update the time_end. We will hack this by adding 45 minutes. We could
+        # probably do something better principled...
+        self.time_end = _add_minutes(self.time_end, 45)
 
 class sched_entry(object):
     """

@@ -34,10 +34,13 @@ def build_ct_d(csv_in, c_filter, allston_c_s):
             cto = ct.course_time(l, False)
             # if the course is meant to be in Allston, then update it.
             if in_allston:
-                cto.convert_to_allston()
+                cto.convert_to_allston(course_name=(l[3] + l[4]))
 
             ret_d[l[1]] = cto
 
+    for key, value in ret_d.items():
+        print (key +"," + value.time_start+","+value.time_end)
+        
     return ret_d
 
 if __name__ == '__main__':
