@@ -27,7 +27,47 @@ def will_be_allston_course(l):
     """
     # Currently return the legacy behavior, but this is a hook to programatically have
     # a finer-grain way of determining which courses will be in Allston.
-    return _legacy(l)
+    return _current_best(l)
+    #return _legacy(l)
+
+def _current_best(l):
+    """
+    Our current (March 2019) best understanding of what courses will be taught in Allston.
+    """
+    term, class_num, course_id, subject, catalog, section = [str(x).upper().strip() for x in l[:6]]
+
+    if subject == "COMPSCI":
+        if catalog in ["50","90NCR","90NBR"]:
+            # CS50, and the 90 seminars taught in the law school will be in Cambridge
+            return False
+        # other CS courses will be in Allston
+        return True
+
+    if subject == "APCOMP":
+        return catalog in ["209A", "227", "298R", "209B", "221", "290R", "297R"]
+
+    if subject == "APMTH":
+        return catalog in ["101", "106", "121", "207", "227", "254", "50A", "107", "221", "231"]
+
+    if subject == "APPHY" and catalog ==  "50B":
+        return True
+
+    if subject == "BE":
+        return catalog in ["110", "121", "125", "128", "129", "130", "191"]
+
+    if subject == "ESE":
+        return catalog in ["166", "6"]
+
+    if subject == "ENG-SCI":
+        return catalog in ["100HFA", "125", "139", "152", "155", "173", "181", "190", "21",
+                           "222", "239", "25", "254", "280", "51", "53", "91HFR", "95R", "96",
+                           "112", "120", "123", "150", "151", "156", "177", "183", "201", "22",
+                           "221", "23", "23", "230", "234", "249", "26", "277", "298R", "51",
+                           "54", "91HFR", "95R", "96"]
+
+
+    # All other courses will be in Cambridge
+    return False
 
 def _legacy(l):
     """
