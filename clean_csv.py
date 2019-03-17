@@ -35,7 +35,7 @@ def clean_csv(fin_n, fout_n):
         except StopIteration:
             total_lines -= 1
             break
-        except:
+        except UnicodeDecodeError:
             bad_lines += 1
             continue
         
