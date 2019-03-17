@@ -16,46 +16,64 @@ must be named course_time.csv and reside in the directory in which the program i
 import csv, sys
 import make_name_dicts as mnd
 import class_time as ct
+import allston_course_selector as acs
+import warnings
 
-def build_ct_d(csv_in, c_filter, allston_c_s):
+def build_ct_d(csv_in, convert_to_allston):
     """
     Build a dictionary indexed by course_num with values course_time objects that will indicate the start time,
     end time, and days of the week for each course, along with where the course is taught.
-    :param csv_in: A csv file in the format of the course_time.csv supplied by the registrat
-    :param c_filter: the set of classes that will be in the dictionary; should be all of the classes taken by any
-    student who takes a class located in Allston
-    :param allston_c_s: The set of classes being taught in Allston
+    :param csv_in: A csv file in the format of the course_time.csv supplied by the registrar
+    :param convert_to_allston: boolean indicating whether we should convert course times for courses indicated as being in Allston.
     :return: a dictionary indexed by course_num with values course_time objects
     """
     ret_d = {}
     for l in csv_in:
-        if l[1] in c_filter:
-            in_allston = l[1] in allston_c_s
-            cto = ct.course_time(l, False)
-            # if the course is meant to be in Allston, then update it.
-            if in_allston:
-                cto.convert_to_allston(course_name=(l[3] + l[4]))
+        in_allston = acs.will_be_allston_course(l)
 
-            ret_d[l[1]] = cto
+        cto = ct.course_time(l, in_allston)
+        course_name=(l[3] + l[4])
+        
+        # if the course is meant to be in Allston, then update it.
+        if in_allston and convert_to_allston:
+            cto.convert_to_allston(course_name=course_name)
 
-    for key, value in ret_d.items():
-        print (key +"," + value.time_start+","+value.time_end)
+        # Check compliant times
+        if not cto.is_compliant_time():
+            warnings.warn("Course " +course_name + " in " + ("Cambridge" if cto.where == 'c' else "Allston") + " is not at a compliant time: it starts at " + cto.time_start)
+            
+        
+        ret_d[l[1]] = cto
+        #print (course_name+",:\t"+ str(cto))
         
     return ret_d
 
 if __name__ == '__main__':
 
-    fin = 'all_seas_student_classes_set.pkl'
-    class_filter_s = mnd.unpickle_data(fin)
+    def usage():
+        print('Usage: python [--convert-to-allston] <courses_times.csv>')
+        sys.exit(1)
+        
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        usage()
 
-    fin = 'Allston_class_set.pkl'
-    allston_class_s = mnd.unpickle_data(fin)
+    filename = sys.argv[1]
+    convert_to_allston = False
 
-    fin = open('course_times.csv', 'r')
+    if sys.argv[1].startswith("--"):
+        if sys.argv[1] == "--convert-to-allston":
+            convert_to_allston = True
+            if len(sys.argv) == 2:
+                usage()
+            filename = sys.argv[2]
+        else:
+            usage()
+
+    fin = open(filename, 'r')
     cin = csv.reader(fin)
     h = next(cin)
 
-    class_time_d = build_ct_d(cin, class_filter_s, allston_class_s)
+    class_time_d = build_ct_d(cin, convert_to_allston)
 
     fin.close()
     mnd.pickle_data('class_time_d.pkl', class_time_d)

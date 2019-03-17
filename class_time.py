@@ -159,14 +159,20 @@ class course_time(object):
         else:
             self.where = 'c'
         self.days = []
+        if len(csv_line) < 17:
+            print("Line too short: %s"%csv_line)
         for i in range(10, 17):
             if csv_line[i] == 'Y':
                 self.days.append(True)
             else:
                 self.days.append(False)
 
+    def __str__(self):
+        return self.class_num + " " + \
+            (self.time_start+"-"+self.time_end + " " if self.time_start else "" ) + \
+            ("Allston" if self.where == 'a' else "Cambridge")
     
-    def is_compliant_time(self):
+    def is_compliant_time(self,where=None):
         """
         Checks whether the course time is compliant with the FAS requirements. Specifically,
         Cambridge courses must start at the times listed in START_TIME_CAMBRIDGE, and Allston
@@ -174,7 +180,14 @@ class course_time(object):
         We currently only check start times, and do not check other requirements (end times, 
         days of week, etc.)
         """
-        if self.where == 'a': 
+        if self.time_start == "":
+            # no time. We will regard it as compliant...
+            return True
+ 
+        if where == None:
+            where = self.where
+
+        if where == 'a': 
             start_time = START_TIME_ALLSTON
         else:
             start_time = START_TIME_CAMBRIDGE
@@ -188,30 +201,25 @@ class course_time(object):
         
     def convert_to_allston(self, course_name=None):
         """
-        Convert this course time from a Cambridge course to the nearest Allston time slot.
-        This method requires that this course is in Cambridge (self.where == 'c') and is a
-        compliant course time. It will update this object so that the course is now in 
+        Convert this course time from a Cambridge time slot to the nearest Allston time slot.
+        It will update this object so that the course is now in 
         Allston (self.where == 'a') and the start and end times will be updated to be the
         appropriate corresponding Allston start and end times.
         :return: None
         """
-        assert self.where == 'c', "Course not currently in Cambridge"
-
-        
+        self.where = "a"
         if self.time_start == "":
-            # No start time. Just convert it to Allston
-            self.where = "a"
+            # No start time
             return
 
-        if not self.is_compliant_time():
-            warnings.warn("Course not currently in a compliant time slot: " +course_name + " starts at " + self.time_start)
+        if not self.is_compliant_time('c'):
+            warnings.warn("Converting " +course_name + " to Allston time, but it is not currently in a Cambridge slot; it starts at " + self.time_start)
 
         # Find the Cambridge timeslot with the minimum distance        
         val, slot = min((abs(_time_diff(t, self.time_start)), slot) for (slot, t) in START_TIME_CAMBRIDGE.items())
 
         # Now move it to the corresponding allston slot
         self.time_start = START_TIME_ALLSTON[slot]
-        self.where = "a"            
         
         # Now update the time_end. We will hack this by adding 45 minutes. We could
         # probably do something better principled...
@@ -237,6 +245,35 @@ class sched_entry(object):
         self.end_t = end_t
         self.where = where
 
+    def conflicts_with(self, sch_en):
+        """
+        Returns boolean indicating whether this schedule entry conflicts
+        with the schedule entry sch_en
+        """
+        if self.start_t == "" or sch_en.start_t == "":
+            return False
+
+        if self.class_num == sch_en.class_num:
+            # Cannot conflict with itself
+            return False
+        
+        (my_start_h, my_start_m) = _time_to_hm(self.start_t)
+        (my_end_h, my_end_m) = _time_to_hm(self.end_t)
+        (oth_start_h, oth_start_m) = _time_to_hm(sch_en.start_t)
+        (oth_end_h, oth_end_m) = _time_to_hm(sch_en.end_t)
+
+        my_start = my_start_h*60 + my_start_m
+        my_end = my_end_h*60 + my_end_m
+        oth_start = oth_start_h*60 + oth_start_m
+        oth_end = oth_end_h*60 + oth_end_m
+
+        assert my_start <= my_end
+        assert oth_start <= oth_end
+
+        if my_end < oth_start or oth_end < my_start:
+            return False
+
+        return True
 
 class student_sched(object):
     """
