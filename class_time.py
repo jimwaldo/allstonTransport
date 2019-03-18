@@ -212,8 +212,9 @@ class course_time(object):
             # No start time
             return
 
+        warn_str = None
         if not self.is_compliant_time('c'):
-            warnings.warn("Converting " +course_name + " to Allston time, but it is not currently in a Cambridge slot; it starts at " + self.time_start)
+            warn_str = "Converting %s to Allston time, but it is not currently in a Cambridge slot; it is %s-%s."%(course_name,self.time_start,self.time_end)
 
         # Find the Cambridge timeslot with the minimum distance        
         val, slot = min((abs(_time_diff(t, self.time_start)), slot) for (slot, t) in START_TIME_CAMBRIDGE.items())
@@ -225,6 +226,9 @@ class course_time(object):
         # probably do something better principled...
         self.time_end = _add_minutes(self.time_end, 45)
 
+        if warn_str is not None:
+            warnings.warn(warn_str + (" Setting it to %s-%s"%(self.time_start,self.time_end)))
+            
 class sched_entry(object):
     """
     A class that holds the basic information about a class (assumed unique within a semester), including the class

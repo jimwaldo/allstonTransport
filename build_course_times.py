@@ -57,6 +57,13 @@ if __name__ == '__main__':
     if len(sys.argv) < 2 or len(sys.argv) > 3:
         usage()
 
+
+    def brief_warning(message, category, filename, lineno, line=None):
+        return "Warning: %s\n"%message
+
+    warnings.formatwarning = brief_warning
+
+
     filename = sys.argv[1]
     convert_to_allston = False
 
