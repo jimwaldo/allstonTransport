@@ -62,7 +62,7 @@ END_TIME_ALLSTON = {
 
 def normalize_time(t):
     """
-    Takes a string representing time as {h}h:mm:ss {AM|PM} and turns it into a 24 hour time of the form hh:mm. This
+    Takes a string representing time as {h}h:mm{:ss}? {AM|PM} and turns it into a 24 hour time of the form hh:mm. This
     will remain a string, but leading zeros will be inserted so that the times sort correctly. This is a reasonably
     disguisting hack, but made necessary by the way the registrar stores times
     :param t: a string representing a time in the form {h}h:mm:ss {AM|PM}
@@ -245,6 +245,24 @@ class sched_entry(object):
         self.end_t = end_t
         self.where = where
 
+    def as_interval(self):
+        """
+        Returns the start and end time as an interval of the number of minutes
+        after midnights
+        """
+        if self.start_t == "":
+            return None
+        
+        (my_start_h, my_start_m) = _time_to_hm(self.start_t)
+        (my_end_h, my_end_m) = _time_to_hm(self.end_t)
+
+        my_start = my_start_h*60 + my_start_m
+        my_end = my_end_h*60 + my_end_m
+
+        assert my_start <= my_end
+        
+        return (my_start, my_end)
+        
     def conflicts_with(self, sch_en):
         """
         Returns boolean indicating whether this schedule entry conflicts
@@ -256,21 +274,12 @@ class sched_entry(object):
         if self.class_num == sch_en.class_num:
             # Cannot conflict with itself
             return False
+
         
-        (my_start_h, my_start_m) = _time_to_hm(self.start_t)
-        (my_end_h, my_end_m) = _time_to_hm(self.end_t)
-        (oth_start_h, oth_start_m) = _time_to_hm(sch_en.start_t)
-        (oth_end_h, oth_end_m) = _time_to_hm(sch_en.end_t)
+        (my_start, my_end) = self.as_interval()
+        (oth_start, oth_end) = sch_en.as_interval()
 
-        my_start = my_start_h*60 + my_start_m
-        my_end = my_end_h*60 + my_end_m
-        oth_start = oth_start_h*60 + oth_start_m
-        oth_end = oth_end_h*60 + oth_end_m
-
-        assert my_start <= my_end
-        assert oth_start <= oth_end
-
-        if my_end < oth_start or oth_end < my_start:
+        if my_end <= oth_start or oth_end <= my_start:
             return False
 
         return True
