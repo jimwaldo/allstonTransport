@@ -34,19 +34,19 @@ def write_conflicts_csv(conflicts_d, c_in, csv_out):
         # build up some more readable course names
         courses_d = {}
         for l in c_in:
-            (class_num, subject, catalog) = (l[1], l[3], l[4])
+            (class_num, subject, catalog, component) = (l[1], l[3], l[4], l[7])
             if class_num in courses:
-                courses_d[class_num] = (subject, catalog)
+                courses_d[class_num] = (subject, catalog, component)
 
         # Now we go through and print everything
-        header_l =[ 'Course1 Subject', 'Course1 Catalog', 'Course1 ClassNum', 'Course2 Subject', 'Course2 Catalog', 'Course2 ClassNum', 'Course1<Course2','Num students']
+        header_l =[ 'Course1 Subject', 'Course1 Catalog', 'Course1 Component', 'Course1 ClassNum', 'Course2 Subject', 'Course2 Catalog', 'Course2 Component', 'Course2 ClassNum', 'Course1<Course2','Num students']
         csv_out.writerow(header_l)
 
         for (c1, c2), count in conflicts_d.items():
             info1 = courses_d[c1]
             info2 = courses_d[c2]
-            csv_out.writerow([c1, info1[0], info1[1], c2, info2[0], info2[1], "TRUE", count])
-            csv_out.writerow([c2, info2[0], info2[1], c1, info1[0], info1[1], "FALSE", count])
+            csv_out.writerow([info1[0], info1[1], info1[2], c1, info2[0], info2[1], info2[2], c2, "TRUE", count])
+            csv_out.writerow([info2[0], info2[1], info2[2], c2, info1[0], info1[1], info1[2], c1, "FALSE", count])
         
         return
 
