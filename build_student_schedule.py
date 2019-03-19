@@ -34,10 +34,11 @@ def build_sched(csv_in, student_set, class_time_d):
         if cl not in class_time_d:
             continue
 
-        class_sched = class_time_d[cl]
+        class_scheds = class_time_d[cl]
         if student not in ret_d:
             ret_d[student] = cs.student_sched(student)
-        ret_d[student].add_course(class_sched)
+        for class_sched in class_scheds:
+            ret_d[student].add_course(class_sched)
 
     for s in ret_d.values():
         s.order_classes()

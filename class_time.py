@@ -170,8 +170,14 @@ class course_time(object):
     def __str__(self):
         return self.class_num + " " + \
             (self.time_start+"-"+self.time_end + " " if self.time_start else "" ) + \
+            self.days_of_week() + " " + \
             ("Allston" if self.where == 'a' else "Cambridge")
-    
+
+
+    def days_of_week(self):
+        daynames = ['M','Tu','W','Th','F','Sa','Su']
+        return "".join([n for (d,n) in zip(self.days, daynames) if d])
+        
     def is_compliant_time(self,where=None):
         """
         Checks whether the course time is compliant with the FAS requirements. Specifically,
@@ -248,7 +254,19 @@ class sched_entry(object):
         self.start_t = start_t
         self.end_t = end_t
         self.where = where
+        
+    def __str__(self):
+        return self.class_num + " " + \
+            (self.start_t+"-"+self.end_t + " " if self.start_t else "" ) + \
+            ("Allston" if self.where == 'a' else "Cambridge")
 
+    def __eq__(self, other): 
+        return self.class_num == other.class_num and \
+            self.start_t == other.start_t and \
+            self.end_t == other.end_t and \
+            self.where == other.where
+    
+    
     def as_interval(self):
         """
         Returns the start and end time as an interval of the number of minutes
@@ -300,24 +318,21 @@ class student_sched(object):
         :param student_num: the student id for the student
         """
         self.student_num = student_num
-        self.class_s = set()
         self.days = [[],[],[],[],[],[],[]]
 
     def add_course(self, course):
         """
-        Add a course to a student_sched. The course will only be added if it has not been previously added. Entries
+        Add a course to a student_sched. Entries
         will be placed in all of the days that the course meets in the days array
         :param course: a sched_entry object for the course
         :return: None
         """
-        if course.class_num in self.class_s:
-            return
-        else:
-            self.class_s.add(course.class_num)
         entry = sched_entry(course.class_num, course.time_start, course.time_end, course.where)
+
         for i in range(0,7):
             if course.days[i] == True:
-                self.days[i].append(entry)
+                if entry not in self.days[i]:
+                    self.days[i].append(entry)
 
     def order_classes(self):
         """
