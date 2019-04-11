@@ -25,16 +25,25 @@ def will_be_allston_course(l):
               and course_times.csv files.
     :return boolean indicating whether the course will be taught in Alston.
     """
-    # Currently return the legacy behavior, but this is a hook to programatically have
-    # a finer-grain way of determining which courses will be in Allston.
-    return _current_best(l)
-    #return _legacy(l)
+    term, class_num, course_id, subject, catalog, section = [str(x).upper().strip() for x in l[:6]]
 
-def _current_best(l):
+    return _current_best(subject, catalog)
+
+
+def will_be_allston_course_subj_catalog(subject, catalog):
+    """
+    Given subject and catalog information about a course, determine whether this 
+    course will be taught in Allston in the future.
+    :param subject, e.g., "COMPSCI"
+    :param catalog, e.g., "50"
+    :return boolean indicating whether the course will be taught in Alston.
+    """
+    return _current_best(subject, catalog)
+    
+def _current_best(subject, catalog):
     """
     Our current (March 2019) best understanding of what courses will be taught in Allston.
     """
-    term, class_num, course_id, subject, catalog, section = [str(x).upper().strip() for x in l[:6]]
 
     if subject == "COMPSCI":
         if catalog in ["50","90NCR","90NBR"]:

@@ -1,9 +1,28 @@
-The code in this project is designed to read files containing enrollment data and class 
-time data supplied by the registrar and determine the number of students who will have to 
-cross the Charles based on assumptions of which classes will be taught in the new SEC building.
-Note that the model used here is crude and will give at best a rough approximation of what the
-traffic will actually be.
+# Course schedule analysis
 
+
+The code in this project is designed to read files containing enrollment data and class 
+time data supplied by the registrar and performs various analyses on it, and extracts
+various useful information.
+
+This project can currently be thought of as two distinct pieces of
+code. The first is a set of programs that read in student schedules
+and course times, and extract information about those student
+schedules, such as the number of students who will have to cross
+the Charles based on assumptions of which classes will be taught in
+the new SEC building, and counting the number of students with course
+conflicts, and counting the number of students that don't have enough
+time for Note that the model used here is crude and will give at best
+a rough approximation of what the traffic will actually be.
+
+The second is a set of programs that reads in multiple years of
+student registration data and attempts to identify pairs of courses
+that would be bad if they conflict. 
+
+
+We first describe the [Analysis of Student Schedules](#student-schedules) and then the [Extraction of Bad Conflict Pairs](#bad-conflict-pairs).
+
+## Analysis of Student Schedules  <a name="student-schedules"></a>
 ### Input files
 
 This code works on files supplied by the registrar/my.harvard group. There are two kinds of .csv files provided, the
@@ -152,7 +171,7 @@ The program `view_pickled -csv no_lunch_d.pkl` can be used to view `no_lunch_d.p
 
 ### Files in the project:
 
-**clean_csv.py**: Reads a .csv file and writes a copy of that file, leaving out any lines of the
+- **clean_csv.py**: Reads a .csv file and writes a copy of that file, leaving out any lines of the
 original that will throw an exception when read as a csv. There are a number of lines in the data
 from my.harvard that throw exceptions, generally because of characters that are outside of the
 utf-8 character set. I believe this is a hold-over from the course names and descriptions that
@@ -161,16 +180,16 @@ document and contained characters from the MS character set that are not utf-8. 
 will print out the total number of lines read, the number of lines written to the new file, and
 the number of lines discarded.
 
-**split_by_term.py**: Reads a csv file in which the first field is the term identifier, and splits the csv file into
+- **split_by_term.py**: Reads a csv file in which the first field is the term identifier, and splits the csv file into
 a set of csv files, where each of the output files contains the entries for a single term.
 
-**make_name_dicts.py**: Somewhat mis-named, contains a collection of utility functions that are
+- **make_name_dicts.py**: Somewhat mis-named, contains a collection of utility functions that are
 used throughout the rest of the code. Not all of these functions are still being used.
 
-**check_unique_class.py**: Quick and dirty check to see if the combination of course_num and course_id in the enrollment
+- **check_unique_class.py**: Quick and dirty check to see if the combination of course_num and course_id in the enrollment
 file added any information. It does not appear to from this check.
 
-**split_classes_students.py**: Creates three sets that are used by the rest of the programs. The first is the set of 
+- **split_classes_students.py**: Creates three sets that are used by the rest of the programs. The first is the set of 
 class_num identifiers that are being modeled as being taught in Allston. Currently, this is determined by whether or not 
 these are in the fields that are assumed to be in Allston (COMPSCI, APCOMP, APMTH). Any class_num that is in these
 subjects is placed in the Allston class set. At the same time, any student who is taking one of these classes is placed
@@ -178,7 +197,7 @@ into a set of all students who are taking classes in Allston. Finally, a second 
 and a set of all of the class_num that are taken by any student who is taking a class in Allston is created.
 
 
-**build_course_times.py**: Builds a dictionary indexed by the class_num that has as value a course_time object (defined
+- **build_course_times.py**: Builds a dictionary indexed by the class_num that has as value a course_time object (defined
 in `class_time.py`). A course_time object contains the normalized start and end time of the course, where the course is
 taught (either Allston or Cambridge), and the days of the week that the course meets. This program takes the course_time
 file for the semester extracted from the file supplied by the registrar, a file containing the python pickle of the set 
@@ -186,36 +205,116 @@ of all classes being taken by any students who take any class in Allston (built 
 and the name of a file containing the python pickle of the set of classes that will be taught in Allston (also produced 
 by split_classes_students.py).
 
-**build_student_schedule.py**: Builds a dictionary indexed by student id for a set of students, with values a student_schedule 
+- **build_student_schedule.py**: Builds a dictionary indexed by student id for a set of students, with values a student_schedule 
 object for that student for the semester. The schedule object (defined in `class_time.py`) contains the student number, the
 set of classes the student takes, and an list of lists, one for each day of the week, of the classes the student takes
 including start time, end time, and location (Allston or Cambridge).
 
-**build_transition_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that allows
+- **build_transition_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that allows
 calculation of the transitions from Allston to Cambridge and back. The dictionary built is keyed by student HUID, and
 has as a value a transition object for each time the student crosses the river. The transition object, defined in
 `class_time.py`, contains a list transitions for each day, kept as a list. It also has a list of tr_time objects, which 
 indicate when the student has to cross the river and in which direction (the destination). 
 
-**build_transition_times_d.py**: Using the data built by `build_transition_d.py`, builds a list of dictionaries, one for 
+- **build_transition_times_d.py**: Using the data built by `build_transition_d.py`, builds a list of dictionaries, one for 
 each day, that is indexed by the time of day with values a list of two integers. The first is the number of students 
 travelling from Cambridge to Allston at that time; the second is the number of students travelling from Allston to 
 Cambridge at that time.
 
-**display_trans.py**: Takes the list of dictionaries of times and transitions built by `build_transition_times_d.py` and 
+- **display_trans.py**: Takes the list of dictionaries of times and transitions built by `build_transition_times_d.py` and 
 creates a simple bar chart of the times and number of transitions for each day of the week.
 
-**make_csv_transitions.py**: Create a csv file from the output of `build_transition_times_d.py`. This is an alternative to
+- **make_csv_transitions.py**: Create a csv file from the output of `build_transition_times_d.py`. This is an alternative to
 `display_trans.py`, that creates a file that can be read into a spreadsheet and may be easier to read than the graphs in
 `display_trans_py`.
 
 
-**build_conflicts_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that counts the number of students
+- **build_conflicts_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that counts the number of students
 enrolled in conflicting courses. 
 
-**make_csv_conflicts.py**: Create a csv file from the output of `build_conflicts_d.py`. For human-readable output, also provide the `course_times.csv` file as input, i.e., use `make_csv_conflicts.py course_times.csv out_file.csv`. Note that if the `course_times.csv` file is provided, then the conflict course pairs are listed in both orders (to make it easy to sort and view conflicts for a particular course). This means that the total number of conflicts listed in the output csv file is *twice* the actual number of conflicts; filter on the column `Course1<Course2` to view each conflict pair only once.
+- **make_csv_conflicts.py**: Create a csv file from the output of `build_conflicts_d.py`. For human-readable output, also provide the `course_times.csv` file as input, i.e., use `make_csv_conflicts.py course_times.csv out_file.csv`. Note that if the `course_times.csv` file is provided, then the conflict course pairs are listed in both orders (to make it easy to sort and view conflicts for a particular course). This means that the total number of conflicts listed in the output csv file is *twice* the actual number of conflicts; filter on the column `Course1<Course2` to view each conflict pair only once.
 
-**build_no_lunch_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that the number of students that do not have time for lunch on *n* days of the week, for *n* ranging from 0 to 7.
+- **build_no_lunch_d.py**: Using the student schedules built by `build_student_schedule.py`, builds a dictionary that the number of students that do not have time for lunch on *n* days of the week, for *n* ranging from 0 to 7.
 
 
-**view_pickled.py**: A simple utility function to view the contents of pickled files.
+- **view_pickled.py**: A simple utility function to view the contents of pickled files.
+
+## Extraction of Bad Conflict Pairs <a name="bad-conflict-pairs"></a>
+
+These files take multi-year registration data and extract candidates
+pairs of courses that may be bad courses to be conflicted. This will
+ultimately be used in evaluating how good a candidate course schedule
+it.
+
+## Input Files
+
+This code works on a file supplied by the registrar/my.harvard group
+that contains a list of the courses that students have enrolled in.
+The CSV file has one line per student enrolled in a course, with each
+line having the following format (where the number indicates the index
+of the field, followed by the description):
+
+0 HUID Unique identifier of student
+
+1 LAST Last name of student
+
+
+2 FIRST First name of student
+
+3 CLASS\_OF Graduating class of the student (e.g., 2017)
+
+4 CONCENTRATION of the student
+
+5 TERM that the student took the class (e.g., "2011 Summer" or "2017 Spring" or "2015 Fall"
+
+6 CLASS_NUM identifier for the class
+
+7 COURSE_ID identifier for the course
+
+8 SUBJECT e.g., "COMPSCI", "GOVT"
+
+9 CATALOG e.g., "51", "91R", "S-11"
+
+10 SECTION
+
+11 DESCRIPTION e.g., "Computation Abstraction&Design", "Intro to Computer Science"
+
+
+
+
+## Running the Programs
+
+1. First, clean the CSV supplied by the registrar, either by running
+   `clean_csv.py` (described above), or even better, opening in Excel
+   and choosing to save as UTF-8-encoded CSV.
+
+2. Run `build_course_pair_stats_d.py
+   multi-year-enrollment-data-clean.csv`, which will produce the file
+   `course_pair_stats_d.pkl`, and pickled version of the course pair
+   information.
+
+3. Run `make_csv_course_pair_stats.py outputfile.csv` which reads in
+   the file `course_pair_stats_d.pkl` created in the previous step,
+   and outputs `outputfile.csv` which contains a subset of the course
+   pairs, where at least one of the pairs is taught in Allston (using
+   `allston_course_selector.py`, described above, to determine which
+   courses will be in Allston) and marks some of them as candidates to
+   consider for bad conflict pairs, i.e., a pair of courses that
+   should not be scheduled in overlapping times.
+
+Finally, the candidate pairs of bad conflicts should be examined
+manually, and some set of actual bad conflicts chosen. That will be
+used as input for a later program.
+
+## Files in the Project
+
+- **build_course_pair_stats_d.py**: Reads a csv file containing
+  multi-year enrollment data and produces `course_pair_stats_d.pkl`
+  which summarizes info about the number of students that have taken
+  that pair of courses, and how close together (e.g., same semester,
+  within 3 semesters, etc.)
+
+- **make_csv_course_pair_stats.py**: Reads `course_pair_stats_d.pkl`
+  and produces a CSV file of a subset of these, to help with
+  identifying bad conflict pairs.
+
