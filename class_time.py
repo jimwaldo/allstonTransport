@@ -91,11 +91,11 @@ def _time_diff(t, u):
     :param u: a string in the form "hh:mm" (24 hour clock)
     :return: an integer, the number of minutes difference between t and u. If t is later than u, this number will be negative.
     """
-    (th, tm) = _time_to_hm(t)
-    (uh, um) = _time_to_hm(u)
+    (th, tm) = time_to_hm(t)
+    (uh, um) = time_to_hm(u)
     return (uh*60+um)-(th*60+tm)
 
-def _time_to_hm(t):
+def time_to_hm(t):
     """
     A utility function to convert a string in the form  "hh:mm" (24 hour clock)
     to a pair of integers (h, m).
@@ -112,13 +112,13 @@ def _add_minutes(t, mins):
     :param mins: an integer number of minutes to add to time
     :return: a string in the form "hh:mm" (24 hour clock), which is time + mins minutes
     """
-    (hr, m) = _time_to_hm(t)
+    (hr, m) = time_to_hm(t)
     m = m + int(mins)
-    if m > 59:
+    while m > 59:
         m -= 60
         hr = int(hr) + 1
 
-    if hr > 23:
+    while hr > 23:
         hr = hr - 24
 
     # convert them to strings
@@ -132,6 +132,13 @@ def _add_minutes(t, mins):
 
     return hr + ":" + m
 
+def is_compliant_cambridge_start_time(start_time):
+    return normalize_time(start_time) in START_TIME_CAMBRIDGE.values()
+
+def is_compliant_allston_start_time(start_time):
+    return normalize_time(start_time) in START_TIME_ALLSTON.values()
+
+    
 class course_time(object):
     """
     The object used to represent the time, place, and days that a class meets. The object contains the course_num,
@@ -194,17 +201,10 @@ class course_time(object):
             where = self.where
 
         if where == 'a': 
-            start_time = START_TIME_ALLSTON
+            return is_compliant_allston_start_time(self.time_start)
         else:
-            start_time = START_TIME_CAMBRIDGE
+            return is_compliant_cambridge_start_time(self.time_start)
 
-        # Just do a linear scan through the start times.
-        for st in start_time.values():
-            if self.time_start == st:
-                return True
-
-        return False        
-        
     def convert_to_allston(self, course_name=None):
         """
         Convert this course time from a Cambridge time slot to the nearest Allston time slot.
@@ -225,12 +225,14 @@ class course_time(object):
         # Find the Cambridge timeslot with the minimum distance        
         val, slot = min((abs(_time_diff(t, self.time_start)), slot) for (slot, t) in START_TIME_CAMBRIDGE.items())
 
+        (a,b) = self.as_interval()
+        duration = b-a
+        
         # Now move it to the corresponding allston slot
         self.time_start = START_TIME_ALLSTON[slot]
         
-        # Now update the time_end. We will hack this by adding 45 minutes. We could
-        # probably do something better principled...
-        self.time_end = _add_minutes(self.time_end, 45)
+        # Now update the time_end, by making sure the slot is the same length.
+        self.time_end = _add_minutes(self.time_start, duration)
 
         if warn_str is not None:
             warnings.warn(warn_str + (" Setting it to %s-%s"%(self.time_start,self.time_end)))
@@ -275,8 +277,8 @@ class sched_entry(object):
         if self.start_t == "":
             return None
         
-        (my_start_h, my_start_m) = _time_to_hm(self.start_t)
-        (my_end_h, my_end_m) = _time_to_hm(self.end_t)
+        (my_start_h, my_start_m) = time_to_hm(self.start_t)
+        (my_end_h, my_end_m) = time_to_hm(self.end_t)
 
         my_start = my_start_h*60 + my_start_m
         my_end = my_end_h*60 + my_end_m
