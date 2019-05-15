@@ -205,6 +205,7 @@ class course_time(object):
         else:
             return is_compliant_cambridge_start_time(self.time_start)
 
+        
     def convert_to_allston(self, course_name=None):
         """
         Convert this course time from a Cambridge time slot to the nearest Allston time slot.
@@ -225,8 +226,7 @@ class course_time(object):
         # Find the Cambridge timeslot with the minimum distance        
         val, slot = min((abs(_time_diff(t, self.time_start)), slot) for (slot, t) in START_TIME_CAMBRIDGE.items())
 
-        (a,b) = self.as_interval()
-        duration = b-a
+        duration = _time_diff(self.time_start, self.time_end)
         
         # Now move it to the corresponding allston slot
         self.time_start = START_TIME_ALLSTON[slot]
