@@ -122,6 +122,25 @@ def build_course_schedule(csv_in, convert_to_allston=False):
 
     return schedule_d
 
+def output_course_schedule(cout, schedule_d):
+    """
+    Output the course schedule schedule_d to a CSV file.
+    Outputs only a subset of the columns the original file might have had.
+    """
+    h = ["SUBJECT","CATALOG","Mtg Start","Mtg End","Mon","Tues","Wed","Thurs","Fri","Sat","Sun","Campus"]
+
+    cout.writerow(h)
+
+    
+    for cn in schedule_d:
+        (subj, catalog) = sct.parse_canonical_course_name(cn)
+
+        campus = "Allston" if will_be_allston_course_subj_catalog(subj, catalog) else "Cambridge"
+        cts = schedule_d[cn]
+        for ct in cts:            
+            days = [ "Y" if d else "N" for d in ct.days ]
+            cout.writerow([subj, catalog, ct.time_start, ct.time_end] + days + [campus])
+    
 
 def compute_conflict_score(conflicts_d, sched_d):
     score = 0
