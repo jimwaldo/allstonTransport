@@ -52,9 +52,9 @@ class course_time(object):
         return self.time_start+"-"+self.time_end + " " + self.days_of_week()
 
 
-    def days_of_week(self):
-        daynames = ['M','Tu','W','Th','F','Sa','Su']
-        return "".join([n for (d,n) in zip(self.days, daynames) if d])
+    def days_of_week(self, separator=""):
+        daynames = ['M','T','W','Th','F','Sa','Su']
+        return separator.join([n for (d,n) in zip(self.days, daynames) if d])
 
     def time_as_interval(self):
         """
