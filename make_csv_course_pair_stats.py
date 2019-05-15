@@ -34,10 +34,11 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
 
     count = 0
     count_candidate = 0
-    
+
+    printAll = False
     for (cn1, cn2), stats in course_pair_stats_d.items():
         n = stats.num_students
-        if n > 40 and stats.in_allston:            
+        if printAll or (n > 40 and stats.in_allston):
             count += 1
 
             cn1num = course_stats_d[cn1].num_students
