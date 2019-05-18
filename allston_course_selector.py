@@ -30,6 +30,22 @@ def will_be_allston_course(l):
     return _current_best(subject, catalog)
 
 
+def will_be_allston_course_canonical_cn(cn):
+    """
+    Given canonical course name, determine whether this 
+    course will be taught in Allston in the future.
+    :param cn, e.g., "COMPSCI 50"
+    :return boolean indicating whether the course will be taught in Alston.
+    """
+    start = cn.find(' ')
+    subject = cn[:start]
+    catalog = cn[start+1:]
+
+    assert subject == subject.upper().strip()
+    assert catalog == catalog.upper().strip()
+
+    return will_be_allston_course_subj_catalog(subject, catalog)
+    
 def will_be_allston_course_subj_catalog(subject, catalog):
     """
     Given subject and catalog information about a course, determine whether this 
