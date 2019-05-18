@@ -33,6 +33,8 @@ def parse_canonical_course_name(cn):
     
     return (subject, catalog)
 
+DAYNAMES = ['M','T','W','Th','F','Sa','Su']
+
 class course_time(object):
     """
     The object used to represent the time  and days that a course meets
@@ -53,8 +55,7 @@ class course_time(object):
 
 
     def days_of_week(self, separator=""):
-        daynames = ['M','T','W','Th','F','Sa','Su']
-        return separator.join([n for (d,n) in zip(self.days, daynames) if d])
+        return separator.join([n for (d,n) in zip(self.days, DAYNAMES) if d])
 
     def time_as_interval(self):
         """
