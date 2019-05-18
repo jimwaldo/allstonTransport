@@ -49,6 +49,16 @@ ALLSTON_MEETING_TIMES = {
     (2,2) : ALLSTON_MEETING_TIMES_TWICE_PER_WEEK_TWO_SLOTS, # Twice per week, two slots
     }
 
+CAMBRIDGE_SLOT_TIMES = {
+    1: ("09:00","10:15"),
+    2: ("10:30","11:45"),
+    3: ("12:00","13:15"),
+    4: ("13:30","14:45"),
+    5: ("15:00","16:15"),
+    6: ("16:30","17:45"),
+    7: ("18:00","19:15"),
+    }
+
 ALLSTON_SLOT_TIMES = {
     1: ("09:45","11:00"),
     2: ("11:15","12:30"),
