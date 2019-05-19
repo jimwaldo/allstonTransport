@@ -105,6 +105,23 @@ def time_to_hm(t):
     m = t[start+1:start+3]
     return (int(hr), int(m))
 
+def time_as_interval(t, u):
+    """
+    Given canonical times t and u (where t is earlier than u)
+    return a pair (i, j) where i and j are minutes after midnight
+    corresponding to t and u
+    """
+    (my_start_h, my_start_m) = time_to_hm(t)
+    (my_end_h, my_end_m) = time_to_hm(u)
+    
+    my_start = my_start_h*60 + my_start_m
+    my_end = my_end_h*60 + my_end_m
+    
+    assert my_start <= my_end
+    
+    return (my_start, my_end)
+
+
 def _add_minutes(t, mins):
     """
     A utility function to add minutes to a time.
