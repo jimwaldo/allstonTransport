@@ -136,7 +136,7 @@ def count_round_trips(student_schedule_d, enroll_d):
     """
     ret_d = {}
     for dn in sct.DAYNAMES:
-        ret_d[dn] = {i:0 for i in range(8)}
+        ret_d[dn] = {i:0 for i in range(3)}
     ret_d['week'] = {i:0 for i in range(8)}
 
     too_few_courses = 0
@@ -174,7 +174,7 @@ def count_round_trips(student_schedule_d, enroll_d):
 
     return ret_d
 
-def count_no_lunches(student_schedule_d, enroll_d):
+def count_no_lunches(student_schedule_d, enroll_d, only_allston=False):
     """
     Given a dictionary of student schedules (see build_student_schedules), returns a dictionary with integer keys (number of days) to number of students with no time for lunch on that many days,
     i.e. no 30 minute break between 
@@ -226,6 +226,16 @@ def count_no_lunches(student_schedule_d, enroll_d):
         num_students = enroll_d[fs]
         no_lunch_days = 0
 
+        if only_allston:
+            # check to make sure the courses include at least one allston course_time
+            allston_course = False
+            for cn in fs:
+                if will_be_allston_course_canonical_cn(cn):
+                    allston_course = True
+                    break
+            if not allston_course:
+                continue
+        
         for dn in student_schedule_d[fs]:
             avail_lunch = [(lunch_start, lunch_end)]
             
@@ -266,15 +276,24 @@ def build_schedule_score(sched_d, conflicts_d, enroll_d):
     # Now compute the number of round trips
     rt_d = count_round_trips(times_d, enroll_d)
 
+    total_round_trips = 0
+    for key, value in rt_d['week'].items():
+        total_round_trips += (key * value)
+        
     # Now compute the number of no lunch days
     nl_d = count_no_lunches(times_d, enroll_d)
+    nl_all_d = count_no_lunches(times_d, enroll_d, only_allston=True)
 
     ret = {}
     ret['conflict_score'] = conflict_score
     ret['transport_days'] = dict(rt_d)
     ret['transport_weeks'] = ret['transport_days']['week']
     del ret['transport_days']['week']
+    ret['total_round_trips'] = total_round_trips
     ret['no_lunch'] = nl_d
+    ret['no_lunch_allston'] = nl_all_d
+
+    
     
     return ret
 
