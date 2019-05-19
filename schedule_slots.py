@@ -100,7 +100,21 @@ def meeting_time_starts_between_9_and_4(mt):
 def start_time_slot(mt):
     return min([int(s[1]) for s in mt])
 
+def slot_start_time(s):
+    _assert_is_slot(s)
+    times = CAMBRIDGE_SLOT_TIMES
+    if len(s) > 2 and s[2] == 'a':
+        times = ALLSTON_SLOT_TIMES
+    
+    return times[int(s[1])][0]
 
+def slot_end_time(s):
+    _assert_is_slot(s)
+    times = CAMBRIDGE_SLOT_TIMES
+    if len(s) > 2 and s[2] == 'a':
+        times = ALLSTON_SLOT_TIMES
+    
+    return times[int(s[1])][1]
 
     
 def meeting_time_to_course_time(mt):
@@ -125,3 +139,21 @@ def meeting_time_to_course_time(mt):
                            "F" in days,
                            False, # Saturday
                            False) # Sunday
+
+def distance_between_meeting_times(mt1, mt2):
+    """
+    Given two meeting times, how many slots apart are they?
+    Distance 0 means they have (at least one actual slot) at the same time.
+    Distance n means that there is at least one actual slots that is n slots away.
+    Returns a positive integer, or None if they are on different days
+    """
+    min_dist = None
+    for asl1 in mt1:
+        for asl2 in mt2:
+            if asl1[0] != asl2[0]:
+                # different days
+                continue
+            d = abs(int(asl1[1]) - int(asl2[1]))
+            if min_dist is None or d < min_dist:
+                min_dist = d
+    return min_dist
