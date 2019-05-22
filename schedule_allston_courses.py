@@ -17,6 +17,7 @@ import schedule_slots as ss
 from ortools.linear_solver import pywraplp
 import scheduling_course_time as sct
 import build_schedule_score as schedule_score
+import build_allston_graphs
 import json
 
 # Weights that control the objective function
@@ -38,8 +39,9 @@ PARAMS =  {
     'MAX_STUDENT_SCHEDULES' : 1000,
 
     # v2 params
-    'MAX_COURSE_PAIRS' : 200,
-    'WEIGHT_COMMON_COURSE_PAIR_ADJACENT_IN_ALLSTON': 0,
+    'MAX_COURSE_PAIRS' : 20,
+    'WEIGHT_COMMON_COURSE_PAIR_ADJACENT_IN_ALLSTON': -2,
+    'WEIGHT_COMMON_COURSE_PAIR_ALMOST_ADJACENT_IN_ALLSTON': -1,
     'WEIGHT_COMMON_COURSE_PAIR_DIFF_CAMPUS_DIFF_DAYS': -2,
 }
 
@@ -609,11 +611,12 @@ def add_student_schedule_constraints_v2(solver, objective, courses, enroll_d, sc
                         continue
 
                     # !@! try this out, try to vary it
-                    if dist == 1 and {2,3} != {s[1] for s in mt1+mt2}:
-                        # Adjacent and not blocking lunch (slots 2 and 3 in Allston)
+                    if dist in [1,2] and {2,3} != {s[1] for s in mt1+mt2}:
+                        # Adjacent (or almost adjacent) and not blocking lunch (slots 2 and 3 in Allston)
                         v = solver.IntVar(0, 1, "%s,%s in %s and %s"%(cn1,cn2,mt1,mt2))
                         makeConjunction(solver, v, [courses[cn1].vars_meeting_time[mt1],courses[cn2].vars_meeting_time[mt2]])
-                        objective.SetCoefficient(v, PARAMS['WEIGHT_COMMON_COURSE_PAIR_ADJACENT_IN_ALLSTON'] * pair_count[p])
+                        weight = PARAMS['WEIGHT_COMMON_COURSE_PAIR_ADJACENT_IN_ALLSTON'] if dist == 1 else PARAMS['WEIGHT_COMMON_COURSE_PAIR_ALMOST_ADJACENT_IN_ALLSTON']
+                        objective.SetCoefficient(v, weight * pair_count[p])
 
             else:
                 assert cn2 in sched_d
@@ -936,3 +939,5 @@ if __name__ == '__main__':
     output_sched_d = make_sched_d_from_solution(sched_d, courses)
     res = schedule_score.build_schedule_score(output_sched_d, conflicts_d, enroll_d)
     print(json.dumps(res, sort_keys=False))
+
+    build_allston_graphs.create_graphs(res)

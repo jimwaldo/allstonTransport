@@ -104,7 +104,7 @@ def build_course_schedule(csv_in, convert_to_allston=False):
             if component in ["Laboratory", "Discussion", "Conference"]:
                 # ignore labs and discussions and other things
                 continue
-
+            
         if start_time == "" or end_time == "":
             # no times, just ignore it
             continue

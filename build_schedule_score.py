@@ -16,9 +16,9 @@ import class_time as ct
 from allston_course_selector import will_be_allston_course_canonical_cn
 import scheduling_course_time as sct
 import build_bad_conflict_score_d as bbcsd
+import build_allston_graphs
 
-
-MIN_COURSES = 4
+MIN_COURSES = 3
 
 def build_enrollment_d(cin, sched_d):
     """
@@ -67,6 +67,8 @@ def build_enrollment_d(cin, sched_d):
 
         if cn not in sched_d:
             #XXX!@! warnings.warn("Did not find course %s in the schedule file"%cn)
+            # if "Fall" in term:
+            #     warnings.warn("Did not find course %s in the schedule file"%cn)
             continue
         
         if (huid, term) not in scheds_d:
@@ -78,6 +80,10 @@ def build_enrollment_d(cin, sched_d):
     # Now convert it to a dictionary from frozen set of canonical course names (i.e., courses taken in a term) to ints (counting how many students had that set of courses)
     enrollments_d = {}
     for s in scheds_d.values():
+        if len(s) < MIN_COURSES:
+            # ignore schedules with less than the minimum number of courses
+            continue
+        
         fs = frozenset(s)        
         if fs not in enrollments_d:
             enrollments_d[fs] = 1
@@ -85,6 +91,17 @@ def build_enrollment_d(cin, sched_d):
             enrollments_d[fs] += 1            
 
     return enrollments_d
+
+def num_allston_courses(cns):
+    """
+    Given a list of canonical course names cns, 
+    how many of them will be in Allston?
+    """
+    allston_count = 0
+    for cn in cns:
+        allston_count += 1 if will_be_allston_course_canonical_cn(cn) else 0
+
+    return allston_count
 
 def build_student_schedules(enroll_d, sched_d):
     """
@@ -142,10 +159,6 @@ def count_round_trips(student_schedule_d, enroll_d):
     too_few_courses = 0
     
     for fs in student_schedule_d:
-        if len(fs) < MIN_COURSES:
-            # ignore schedules with less than the minimum number of courses
-            too_few_courses += 1
-            continue
         
         num_students = enroll_d[fs]
         week_count = 0
@@ -174,7 +187,7 @@ def count_round_trips(student_schedule_d, enroll_d):
 
     return ret_d
 
-def count_no_lunches(student_schedule_d, enroll_d, only_allston=False):
+def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_allston=False):
     """
     Given a dictionary of student schedules (see build_student_schedules), returns a dictionary with integer keys (number of days) to number of students with no time for lunch on that many days,
     i.e. no 30 minute break between 
@@ -214,51 +227,72 @@ def count_no_lunches(student_schedule_d, enroll_d, only_allston=False):
         return out
 
 
-                
+    def subtract_from_lunch(inter_l, start_time, end_time):
+        (start_h, start_m) = ct.time_to_hm(start_time)
+        (end_h, end_m) = ct.time_to_hm(end_time)
+        inter = (start_h*60 + start_m, end_h*60 + end_m)
+        
+        assert inter[0] <= inter[1]
+        
+        return subtract_interval(inter_l, inter)
+    
+    def has_time_for_lunch(inter_l):
+        for (a,b) in inter_l:
+            if lunch_duration <= (b-a):
+                return True
+        return False
+    
     too_few_courses = 0
     
     for fs in student_schedule_d:
-        if len(fs) < MIN_COURSES:
-            # ignore schedules with less than the minimum number of courses
-            too_few_courses += 1
-            continue
         
         num_students = enroll_d[fs]
         no_lunch_days = 0
 
-        if only_allston:
+        camb_cns = []
+        alls_cns = []
+        for cn in fs:
+            if will_be_allston_course_canonical_cn(cn):
+                alls_cns.append(cn)
+            else:
+                camb_cns.append(cn)
+
+
+        if only_allston and len(alls_cns) == 0:
             # check to make sure the courses include at least one allston course_time
-            allston_course = False
-            for cn in fs:
-                if will_be_allston_course_canonical_cn(cn):
-                    allston_course = True
-                    break
-            if not allston_course:
-                continue
-        
+            continue
+
         for dn in student_schedule_d[fs]:
             avail_lunch = [(lunch_start, lunch_end)]
             
             lst = student_schedule_d[fs][dn]
             # lst is a list of tuples indicating times and location
 
+            # Remove cambridge times
             for (start, end, loc) in lst:
-                (start_h, start_m) = ct.time_to_hm(start)
-                (end_h, end_m) = ct.time_to_hm(end)
-                inter = (start_h*60 + start_m, end_h*60 + end_m)
-
-                assert inter[0] <= inter[1]
-        
-                avail_lunch = subtract_interval(avail_lunch, inter)
+                if loc == "Cambridge":
+                    avail_lunch = subtract_from_lunch(avail_lunch, start, end)
+                else:
+                    assert loc == "Allston"
 
             # Now see if any lunch time remains...
-            has_lunch = False
-            for (a,b) in avail_lunch:
-                if lunch_duration <= (b-a):
-                    has_lunch = True
 
-            if not has_lunch:
+            if not has_time_for_lunch(avail_lunch):
+                if not due_to_allston:
+                    no_lunch_days += 1
+                continue
+
+            assert has_time_for_lunch(avail_lunch)
+
+            # Now remove Allston times
+
+            for (start, end, loc) in lst:
+                if loc == "Allston":
+                    avail_lunch = subtract_from_lunch(avail_lunch, start, end)
+                    
+            if not has_time_for_lunch(avail_lunch):
                 no_lunch_days += 1
+
 
         ret_d[no_lunch_days] += num_students
 
@@ -283,6 +317,7 @@ def build_schedule_score(sched_d, conflicts_d, enroll_d):
     # Now compute the number of no lunch days
     nl_d = count_no_lunches(times_d, enroll_d)
     nl_all_d = count_no_lunches(times_d, enroll_d, only_allston=True)
+    nl_due_to_all_d = count_no_lunches(times_d, enroll_d, only_allston=True, due_to_allston=True)
 
     ret = {}
     ret['conflict_score'] = conflict_score
@@ -291,7 +326,8 @@ def build_schedule_score(sched_d, conflicts_d, enroll_d):
     del ret['transport_days']['week']
     ret['total_round_trips'] = total_round_trips
     ret['no_lunch'] = nl_d
-    ret['no_lunch_allston'] = nl_all_d
+    ret['no_lunch_allston_students'] = nl_all_d
+    ret['no_lunch_due_to_allston'] = nl_due_to_all_d
 
     
     
@@ -338,4 +374,16 @@ if __name__ == '__main__':
 
     ret = build_schedule_score(sched_d, conflicts_d, enroll_d)
 
+    build_allston_graphs.create_graphs(ret)
     print(ret)
+
+
+    num_allston_courses_d = { i: 0 for i in range(7)}
+    for cns, count in enroll_d.items():
+        na = num_allston_courses(cns)
+        #if na == 4: print("%s has %s allston courses"%(cns,na))
+        num_allston_courses_d[na] += count
+
+    print("Here we go! How many Allston courses do student schedules have?")
+    print(num_allston_courses_d)
+    print("Total is %s"%(sum(num_allston_courses_d.values())))
