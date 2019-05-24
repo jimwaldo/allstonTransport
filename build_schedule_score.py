@@ -15,10 +15,137 @@ import make_name_dicts as md
 import class_time as ct
 from allston_course_selector import will_be_allston_course_canonical_cn
 import scheduling_course_time as sct
-import build_bad_conflict_score_d as bbcsd
 import build_allston_graphs
 
 MIN_COURSES = 3
+DROP_NON_ALLSTON_ENROLLMENTS = True
+
+def build_course_schedule(csv_in, convert_to_allston=False):
+    """
+    Build a representation of a course schedule from a CSV file
+    input: csv_in is a CSV file (including header row)
+    output: dictionary from canonical course name to list of sct.course_time objects
+    """
+
+    # Read in the headers and try to make sense of them
+    h = next(csv_in)
+    cols = {}
+    required_cols = [["SUBJECT"], ["CATALOG"], ["Mtg Start","Meeting Start", "MEETING_START"], ["Mtg End", "Meeting End", "MEETING_END"], ["Mon"], ["Tues"], ["Wed"], ["Thurs"], ["Fri"], ["Sat"], ["Sun"]]
+    optional_cols = [["COMPONENT"]]
+
+    missing = False
+    for cs in required_cols:
+        found = False
+        for c in cs:
+            if c.upper() in [t.upper() for t in h]:
+                cols[cs[0]] = [t.upper() for t in h].index(c.upper())
+                found = True
+                break
+        if not found:
+            warnings.warn("Didn't find column %s in course schedule file"%cs[0])
+            missing = True
+
+    if missing:
+        sys.exit(1)
+
+    for cs in optional_cols:
+        for c in cs:
+            if c.upper() in [t.upper() for t in h]:
+                cols[cs[0]] = [t.upper() for t in h].index(c.upper())
+                break
+
+
+    schedule_d = { }
+
+    # Now we can go through the rest of the file building up the schedule entries
+    for l in csv_in:
+        (subj, cat, start_time, end_time, mon, tue, wed, thu, fri, sat, sun) = (l[cols["SUBJECT"]],
+                                                                                l[cols["CATALOG"]],
+                                                                                l[cols["Mtg Start"]],
+                                                                                l[cols["Mtg End"]],
+                                                                                l[cols["Mon"]],
+                                                                                l[cols["Tues"]],
+                                                                                l[cols["Wed"]],
+                                                                                l[cols["Thurs"]],
+                                                                                l[cols["Fri"]],
+                                                                                l[cols["Sat"]],
+                                                                                l[cols["Sun"]])
+        component = None
+        if "COMPONENT" in cols:
+            component = l[cols["COMPONENT"]]
+            if component in ["Laboratory", "Discussion", "Conference","LAB","DIS","CNC","RR","THE","LRE"]:
+                # ignore labs and discussions and other things
+                continue
+            
+        if start_time == "" or end_time == "":
+            # no times, just ignore it
+            continue
+
+        cn = sct.canonical_course_name(subj, cat)
+        ct = sct.course_time(start_time, end_time, mon, tue, wed, thu, fri, sat, sun)
+
+        if convert_to_allston and will_be_allston_course_subj_catalog(subj, cat):
+            ct.convert_to_allston(cn)
+        
+        if cn not in schedule_d:
+            schedule_d[cn] = []
+
+        schedule_d[cn].append(ct)
+
+    return schedule_d
+
+def output_course_schedule(cout, schedule_d):
+    """
+    Output the course schedule schedule_d to a CSV file.
+    Outputs only a subset of the columns the original file might have had.
+    """
+    h = ["SUBJECT","CATALOG","Mtg Start","Mtg End","Mon","Tues","Wed","Thurs","Fri","Sat","Sun","Campus"]
+
+    cout.writerow(h)
+
+    
+    for cn in schedule_d:
+        (subj, catalog) = sct.parse_canonical_course_name(cn)
+
+        campus = "Allston" if will_be_allston_course_subj_catalog(subj, catalog) else "Cambridge"
+        cts = schedule_d[cn]
+        for ct in cts:            
+            days = [ "Y" if d else "N" for d in ct.days ]
+            cout.writerow([subj, catalog, ct.time_start, ct.time_end] + days + [campus])
+    
+def build_conflicts_d(csv_in):
+    """
+    Build a dictionary keyed by canonical course name (e.g. "COMPSCI 50") to dictionaries with 
+    a map from canonical course name to number, such that if d[c1][c2] = w, then w is the weight (bigger is worse)
+    if courses c1 and c2 conflict.
+
+    :param csv_in: A csv file where the first column is a canonical name,
+                   the second column is a canonical name, and the third column is a weight
+    :return: a dictionary, as described above.
+    """
+    conflicts_d = {}
+
+    def add_conflict(x, y, w):
+        if x not in conflicts_d:
+            conflicts_d[x] =  {}
+
+        if y in conflicts_d[x]:
+            warnings.warn("Duplicate entry! %s and %s have weights %s and %s"%(x,y,conflicts_d[x][y],w))
+
+        conflicts_d[x][y] = w
+        
+    for l in csv_in:
+        (c1, c2, w) = (l[0], l[1], l[2])
+        if not (c1 < c2):
+            warnings.warn("In file, the course names aren't in alphabetical order: %s is not alphabetically before %s"%(c1,c2))
+            (c1, c2) = (c2, c1)
+
+        add_conflict(c1, c2, w)
+        add_conflict(c2, c1, w) # add it in the other order, to make it easier to look up...
+                                
+    return conflicts_d
+
+
 
 def build_enrollment_d(cin, sched_d):
     """
@@ -83,7 +210,11 @@ def build_enrollment_d(cin, sched_d):
         if len(s) < MIN_COURSES:
             # ignore schedules with less than the minimum number of courses
             continue
-        
+
+        if DROP_NON_ALLSTON_ENROLLMENTS:
+            if num_allston_courses(s) == 0:
+                continue
+            
         fs = frozenset(s)        
         if fs not in enrollments_d:
             enrollments_d[fs] = 1
@@ -137,7 +268,7 @@ def build_student_schedules(enroll_d, sched_d):
                 for i in range(len(sct.DAYNAMES)):
                     if ct.days[i]:
                         # This course has times on sct.DAYNAMES[i]
-                        days[sct.DAYNAMES[i]].append((ct.time_start, ct.time_end, location))
+                        days[sct.DAYNAMES[i]].append((ct.time_start, ct.time_end, location, cn))
                         # be inefficient and sort the days array every time we add to it...
                         days[sct.DAYNAMES[i]].sort()
 
@@ -145,6 +276,31 @@ def build_student_schedules(enroll_d, sched_d):
         ss_d[ffs] = days
         
     return ss_d
+
+def compute_conflict_score(conflicts_d, sched_d):
+    score = 0
+    
+    for cn1 in conflicts_d:
+        for cn2 in conflicts_d[cn1]:
+            if not (cn1 < cn2):
+                continue
+            
+            weight = conflicts_d[cn1][cn2]
+
+            if cn1 not in sched_d:
+                #warnings.warn("Course %s is not offered in the schedule"%cn1)
+                continue
+            if cn2 not in sched_d:
+                #warnings.warn("Course %s is not offered in the schedule"%cn2)
+                continue
+            
+            # Let's see if cn1 and cn2 conflict
+            if sct.courses_conflict(sched_d[cn1], sched_d[cn2]):
+                print("%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2])))
+                score += float(weight)
+
+    return score
+            
 
 def count_round_trips(student_schedule_d, enroll_d):
     """
@@ -156,6 +312,7 @@ def count_round_trips(student_schedule_d, enroll_d):
         ret_d[dn] = {i:0 for i in range(3)}
     ret_d['week'] = {i:0 for i in range(8)}
 
+    multi_round_trip_blame = {}
     too_few_courses = 0
     
     for fs in student_schedule_d:
@@ -168,7 +325,7 @@ def count_round_trips(student_schedule_d, enroll_d):
 
             day_count = 0
             current_loc = "Cambridge"
-            for (start, end, loc) in lst:
+            for (start, end, loc, cn) in lst:
                 if loc != current_loc:
                     current_loc = loc
                     if loc == "Allston":
@@ -176,6 +333,15 @@ def count_round_trips(student_schedule_d, enroll_d):
                         day_count += 1
                         week_count += 1
 
+            if day_count > 1:
+                # More than one round trip to Allston in a day :(
+                # Blame the Allston courses on that day.
+                allston_courses = frozenset({cn for (start, end, loc, cn) in lst if loc == "Allston" })
+                if allston_courses not in multi_round_trip_blame:
+                    multi_round_trip_blame[allston_courses] = num_students
+                else:
+                    multi_round_trip_blame[allston_courses] += num_students
+                    
             if day_count not in ret_d[dn]:
                 ret_d[dn][day_count] = 0
                 
@@ -185,7 +351,7 @@ def count_round_trips(student_schedule_d, enroll_d):
             ret_d['week'][week_count] = 0
         ret_d['week'][week_count] += num_students
 
-    return ret_d
+    return (ret_d, multi_round_trip_blame)
 
 def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_allston=False):
     """
@@ -243,6 +409,8 @@ def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_al
         return False
     
     too_few_courses = 0
+
+    lunch_blame = {}
     
     for fs in student_schedule_d:
         
@@ -269,7 +437,7 @@ def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_al
             # lst is a list of tuples indicating times and location
 
             # Remove cambridge times
-            for (start, end, loc) in lst:
+            for (start, end, loc, cn) in lst:
                 if loc == "Cambridge":
                     avail_lunch = subtract_from_lunch(avail_lunch, start, end)
                 else:
@@ -285,19 +453,41 @@ def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_al
             assert has_time_for_lunch(avail_lunch)
 
             # Now remove Allston times
-
-            for (start, end, loc) in lst:
+            blame_courses = set()
+            for (start, end, loc, cn) in lst:
                 if loc == "Allston":
-                    avail_lunch = subtract_from_lunch(avail_lunch, start, end)
+                    new_avail_lunch = subtract_from_lunch(avail_lunch, start, end)
+                    if avail_lunch != new_avail_lunch:
+                        blame_courses.add(cn)
+                    avail_lunch = new_avail_lunch
                     
             if not has_time_for_lunch(avail_lunch):
                 no_lunch_days += 1
+                fsblame = frozenset(blame_courses)
+                lunch_blame[fsblame] = num_students + lunch_blame.get(fsblame, 0)
 
 
         ret_d[no_lunch_days] += num_students
 
-    return ret_d
+    return (ret_d, lunch_blame)
 
+def simple_score(d):
+    """
+    Produce a simple score that can be compared to other simple scores.
+    """
+
+    nl = d['no_lunch_due_to_allston']
+    
+    # Return a tuple consisting of:
+    #  1. Conflict score
+    #  2. Sum of 2 or 3 round-trips
+    #  3. Weighted sum of no lunch days
+
+    # Given two tuples t1 and t2, t1 is better than t2 if t1 < t2
+    return (d['conflict_score'],
+            sum([day[2] + day.get(3, 0) for day in d['transport_days'].values()]),
+            5.4*nl[5] + 4.3*nl[4] + 3.2*nl[3] + 2.1 * nl[2] + nl[1] + sum([day[1] for day in d['transport_days'].values()]),
+            )
 
 def build_schedule_score(sched_d, conflicts_d, enroll_d):
     # Now get the times for the schedules.
@@ -305,19 +495,19 @@ def build_schedule_score(sched_d, conflicts_d, enroll_d):
 
 
     # Now compute the conflict score for the schedule
-    conflict_score = bbcsd.compute_conflict_score(conflicts_d, sched_d)
+    conflict_score = compute_conflict_score(conflicts_d, sched_d)
     
     # Now compute the number of round trips
-    rt_d = count_round_trips(times_d, enroll_d)
+    (rt_d, rt_blame) = count_round_trips(times_d, enroll_d)
 
     total_round_trips = 0
     for key, value in rt_d['week'].items():
         total_round_trips += (key * value)
         
     # Now compute the number of no lunch days
-    nl_d = count_no_lunches(times_d, enroll_d)
-    nl_all_d = count_no_lunches(times_d, enroll_d, only_allston=True)
-    nl_due_to_all_d = count_no_lunches(times_d, enroll_d, only_allston=True, due_to_allston=True)
+    (nl_d, _) = count_no_lunches(times_d, enroll_d)
+    (nl_all_d, _) = count_no_lunches(times_d, enroll_d, only_allston=True)
+    (nl_due_to_all_d, lunch_blame) = count_no_lunches(times_d, enroll_d, only_allston=True, due_to_allston=True)
 
     ret = {}
     ret['conflict_score'] = conflict_score
@@ -329,9 +519,10 @@ def build_schedule_score(sched_d, conflicts_d, enroll_d):
     ret['no_lunch_allston_students'] = nl_all_d
     ret['no_lunch_due_to_allston'] = nl_due_to_all_d
 
+    ret['simple_score'] = simple_score(ret)
     
     
-    return ret
+    return (ret, rt_blame, lunch_blame)
 
 if __name__ == '__main__':
     def usage():
@@ -372,7 +563,7 @@ if __name__ == '__main__':
     enroll_d = build_enrollment_d(cin, sched_d)
     fin.close()
 
-    ret = build_schedule_score(sched_d, conflicts_d, enroll_d)
+    (ret, rt_blame, lunch_blame) = build_schedule_score(sched_d, conflicts_d, enroll_d)
 
     build_allston_graphs.create_graphs(ret)
     print(ret)

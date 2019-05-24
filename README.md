@@ -5,7 +5,7 @@ The code in this project is designed to read files containing enrollment data an
 time data supplied by the registrar and performs various analyses on it, and extracts
 various useful information.
 
-This project can currently be thought of as three distinct pieces of
+This project can currently be thought of as four distinct pieces of
 code. The first is a set of programs that read in student schedules
 and course times, and extract information about those student
 schedules, such as the number of students who will have to cross
@@ -20,12 +20,15 @@ student registration data and attempts to identify pairs of courses
 that would be bad if they conflict. 
 
 The third is a set of programs that determines a "goodness" score for
-a course schedule, and also that attempts to find a schedule for
+a course schedule.
+
+The fourth is a set of programs that attempt to find a schedule for
 Allston courses that optimizes (some of) the goodness score.
 
 
 We first describe the [Analysis of Student Schedules](#student-schedules), then the [Extraction of Bad Conflict Pairs](#bad-conflict-pairs),
-and then the [Goodness Score](#goodness-score).
+then the [Goodness Score](#goodness-score),
+and then the [Schedule Solution](#schedule-solution).
 
 ## Analysis of Student Schedules  <a name="student-schedules"></a>
 ### Input files
@@ -337,8 +340,7 @@ These files take or produce a course schedule file (a CSV file with
 certain columns). Some of the files take a course schedule as input
 and produce a score that indicates how good the schedule is (as
 evaluated against various criteria, such as bad course conflicts,
-estimates of student travel times, etc. Other files attempt to produce
-schedules that are good.
+estimates of student travel times, etc. 
 
 
 ## Input Files
@@ -370,8 +372,46 @@ schedules that are good.
 
 ## Files in the Project
 
-- **build_bad_conflict_score_d.py**: Takes as arguments
-  `bad_course_conflicts.csv` and a course schedule, and checks to see
-  which of the bad course conflicts occur. Produces the file
-  `bad_conflict_score_d.pkl` which is simply a dictionary that records
-  the conflict score.
+- **build_schedule_score.py**: Takes as arguments a course schedule file,
+  `bad_course_conflicts.csv`, and multi-year enrollment data, and computes a score
+  of the goodness of the schedule. It also produces output graphs `Schedule_Analysis_Graphs.pdf`.
+
+
+## Schedule Solution <a name="schedule-solution"></a>
+
+Having got a way to measure the goodness of a score, we now want
+a way to actually find good schedules.
+
+
+## Files in the Project
+
+- **schedule_allston_courses.py**: Tries to find a good
+  schedule. Takes a bad course conflicts file, a schedule, and
+  multi-year enrollment data. Given the schedule, it will try to find
+  new times for all the Allston courses.  
+  
+```sh
+Usage: schedule_allston_courses <bad_course_conflicts.csv> <schedule.csv> <multi-year-enrollment-data.csv> [-allston-courses <allston_courses_to_schedule.csv>] [-out <output_file.csv>] [-print AREA | -registrar]
+  bad_course_conflicts lists the courses that would be bad to schedule at the same time, including a weight of how bad the conflict is
+  schedule.csv is an existing schedule of Harvard courses, both Cambridge and Allston courses. Allston course times will
+                   be ignored, but that set of courses will be used for scheduling (unless -allston-courses is provided)
+  allston_courses_to_schedule is optional, but if provided will be the list of Allston courses to schedule (Allston
+                   courses in schedule.csv will be ignored)
+  output_file.csv is an output file of schedule times.
+  -print AREA will only output results for the given area (e.g., "COMPSCI")
+  -registrar will produce output in a similar format to the registrar course schedule output
+  ```
+
+  When `schedule_allston_courses.py` is run, it also ends up calling
+  code in `build_schedule_score.py`, both to evaluate schedules, and
+  also to produce graphs.
+
+- **`schedule_slots.py`**: Utility file with information about the
+  meeting times for Allston courses.
+
+- **`scheduling_course_time.py`**: Utility file for representing
+  course times. Some overlap with `class_time.py`, and something to do
+  in the future (i.e., never) would be to refactor these two files so
+  we only need one of them.
+
+

@@ -12,13 +12,19 @@ import warnings
 import sys, csv, math, datetime
 import class_time as ct
 from allston_course_selector import will_be_allston_course_subj_catalog
-import build_bad_conflict_score_d as bbcsd
 import schedule_slots as ss
 from ortools.linear_solver import pywraplp
 import scheduling_course_time as sct
 import build_schedule_score as schedule_score
 import build_allston_graphs
 import json
+import random
+
+
+# Note that this file implements three different versions of the solver, controlled by the following variable.
+# Version 3 is the recommended version.
+SOLVER_VERSION = 3
+assert SOLVER_VERSION in [1,2,3]
 
 # Weights that control the objective function
 PARAMS =  {
@@ -44,6 +50,7 @@ PARAMS =  {
     'WEIGHT_COMMON_COURSE_PAIR_ALMOST_ADJACENT_IN_ALLSTON': -1,
     'WEIGHT_COMMON_COURSE_PAIR_DIFF_CAMPUS_DIFF_DAYS': -2,
 }
+
 
 def makeDisjunction(solver, v, disjuncts):
     """
@@ -71,7 +78,9 @@ def makeConjunction(solver, v, conjuncts):
 
 class Course:
     """
-    A Course is a course that needs to be scheduled
+    A Course is a course that needs to be scheduled. The object
+    contains the solver variables for the meeting times and for the actual slots
+    that meeting times cover.
     """
     def __init__(self, name, frequency, num_slots=None):
         self.name = name
@@ -86,7 +95,11 @@ class Course:
         self.vars_actualslots = { }
 
     def createVarsAndConstraints(self, solver):
-        """Create vars and constraints for this course"""
+        """
+        Create vars and constraints for this course. The constraints ensure that, e.g.,
+        exactly one meeting time is chosen for the course, and that the "actual slot" 
+        variables correctly reflect the chosen meeting time.
+        """
 
         # maintain dict from variables for actual slots to variables for meeting_times
         vasl_to_mtx = { }
@@ -132,7 +145,9 @@ class Course:
 
 
     def createObjective(self, solver, objective, conflict_vars_d, sched_d, conflicts_d, courses):
-        """Create/add to objective function for this course"""
+        """
+        Create/add to objective function for this course
+        """
 
 
         # Put a little pressure on to not use slots 6 or 7
@@ -203,6 +218,10 @@ class Course:
                     makeDisjunction(solver, v_conflicts, vs_d_same_slot)            
 
     def solution_meeting_time(self):
+        """
+        Return the chosen meeting time for this course. 
+        Should be called only after a solution has been found.
+        """
         for s in self.vars_meeting_time:
             if self.vars_meeting_time[s].solution_value():
                 return s
@@ -267,112 +286,10 @@ def add_area_constraints(solver, objective, courses):
                             cns_times_of_day[slot][j].SetCoefficient(vmt, 1)
                             cns_times_of_day[j][slot].SetCoefficient(vmt,-1)
 
-def add_constraints_for_one_student_schedule_day(solver, objective, courses, enroll_d, sched_d, fs, day):
-    # set up the schedule for the student as follows:
-    #  For every time t in 15 minute increments:
-    #     in_cambridge[t] is 0-1 variable and 1 iff the student needs to be in Cambridge at time t
-    #     in_allston[t] is 0-1 variable and 1 iff the student needs to be in Allston at time t
-    #     location[t] is 0-1 variable and in_allston[t] == 1 => location[t] == 1 and (in_allston[t] == 0 and in_cambridge[t] == 1) => location[t] == 0
-    #     scheduled[t] is 0-1 variable and 1 iff the student has a course schedule at time t
-
-    # We separate them out like this because the schedule may
-    # have conflicts, and so we just say that the location
-    # pays more attention to allston. Think of "in_cambridge"
-    # and "in_allston" vars as where the student is meant to
-    # be, and "location" vars as where the student actually is.
-
-    # To reduce round trips, we want to minimize the number of
-    # t such that location[t] == 1 and location[t-1] == 0
-    # (i.e., student has to travel to allston)
-
-    start_time = 8*60-15 # 7:45am
-    end_time = 18*60 # 6pm
-    lunch_start = 11*60 # 11AM
-    lunch_end = 14*60 # 2PM
-    lunch_duration = 30 # 30 minutes for lunch
-
-    times = list(range(start_time, end_time, 15))
-    v_in_cambridge = [False for i in range(len(times))]
-    v_in_allston = [solver.IntVar(0, 1, "%s: must be in allston at %s on day %s"%(fs,times[i],day)) if i > 0 else None for i in range(len(times))]
-    v_location = [solver.IntVar(0, 1, "%s: location at %s on day %s"%(fs,times[i],day)) for i in range(len(times))]
-    v_is_scheduled = [solver.IntVar(0, 1, "%s: is scheduled at %s on day %s"%(fs,times[i],day)) if i > 0 else None for i in range(len(times))]
-
-    # force student to be in Cambridge at the start of the day
-    v_in_cambridge[0] = True
-    cnst = solver.Constraint(0,0)
-    cnst.SetCoefficient(v_location[0], 1)                        
-
-    # Set up contraints on location to indicate where the student is
-    for t in range(1,len(times)):
-        # if v_in_allston[t] is true, then v_location[t] needs to be true
-        cnst = solver.Constraint(0, solver.infinity())
-        assert t < len(v_in_allston), "t is %s and len is %s"%(t,len(v_in_allston))
-        cnst.SetCoefficient(v_in_allston[t], -1)
-        cnst.SetCoefficient(v_location[t], 1)
-
-    # Set up objective function to minimize transitions to Allston
-    for t in range(1,len(times)):
-        v_trans_to_allston = solver.IntVar(0, 1, "%s: transition to allston at %s on day %s"%(fs,times[t],day))
-        cnst = solver.Constraint(0, solver.infinity())
-        cnst.SetCoefficient(v_location[t-1], 1)
-        cnst.SetCoefficient(v_location[t], -1)
-        cnst.SetCoefficient(v_trans_to_allston, 1)
-        objective.SetCoefficient(v_trans_to_allston, PARAMS['WEIGHT_PER_STUDENT_TRIP_TO_ALLSTON'] * int(enroll_d[fs]))
 
 
-    # Set up objective function to allow students to have lunch
-    lunch_schedule_vars = v_is_scheduled[times.index(lunch_start):times.index(lunch_end)+1]
-    no_lunch = solver.IntVar(0, 1, "%s: no lunch on day %s"%(fs,day))
-    makeConjunction(solver, no_lunch, lunch_schedule_vars)
-    objective.SetCoefficient(no_lunch, PARAMS['WEIGHT_NO_LUNCH_PER_STUDENT'] * int(enroll_d[fs])) 
-
-
-    # Now go through the courses in fs and set up the constraints on v_in_allston, v_in_cambridge, and v_is_scheduled
-    for cn in fs:
-        if cn in courses:
-            # cn is in Allston
-            # Add the appropriate constraints
-            for asl in courses[cn].vars_actualslots:
-                if day not in [ss.DAYS_OF_WEEK.index(slot[0]) for slot in mt]:
-                    # wrong day!
-                    continue
-
-                (asl_start, asl_end) = ct.time_as_interval(ss.slot_start_time(asl), ss.slot_end_time(asl))
-
-                for t in range(1,len(times)):
-                    # does the time represented by asl contain the time times[t]?
-                    # if so, constrain v_in_allston[t] to be true if var_actual_slots is true
-                    if asl_start <= times[t] and times[t] <= asl_end:
-                        # if courses[cn].vars_actualslots[asl] then  v_in_allston[t]
-                        cnst = solver.Constraint(0, solver.infinity())
-                        cnst.SetCoefficient(courses[cn].vars_actualslots[asl], -1)
-                        cnst.SetCoefficient(v_in_allston[t], 1)
-
-                        # if courses[cn].vars_actualslots[asl] then  v_is_scheduled[t]
-                        cnst = solver.Constraint(0, solver.infinity())
-                        cnst.SetCoefficient(courses[cn].vars_actualslots[asl], -1)
-                        cnst.SetCoefficient(v_is_scheduled[t], 1)
-        else:
-            # cn is in Cambridge
-            assert cn in sched_d
-            # sched_d[cn] is a list of course_time objects
-            for cto in sched_d[cn]:
-                if not cto.days[day]:
-                    # wrong day!
-                    continue
-                (cto_start, cto_end) = cto.time_as_interval()
-                for t in range(1,len(times)):
-                    # does the time represented by cto contain the time times[t]?
-                    # if so, constrain v_in_cambridge[t] to be true
-                    if cto_start <= times[t] and times[t] <= cto_end:
-                        if not v_in_cambridge[t]:
-                            v_in_cambridge[t] = True
-                            cnst = solver.Constraint(1,1)
-                            cnst.SetCoefficient(v_is_scheduled[t], 1)                        
-
-
-def add_constraints_for_one_student_schedule_day_take_two(solver, objective, courses, enroll_d, sched_d, fs, tu_thu):
-    # Go through the courses in fs and figure out the important times.
+def add_constraints_for_one_student_schedule_day(solver, objective, courses, enroll_d, sched_d, fs, tu_thu):
+    # Go through the courses in fs and figure out the important times (i.e., start and end times of the student's courses)
     # For each such time t:
     #     in_cambridge[t] is 0-1 variable and 1 iff the student needs to be in Cambridge at time t
     #     in_allston[t] is 0-1 variable and 1 iff the student needs to be in Allston at time t
@@ -389,6 +306,8 @@ def add_constraints_for_one_student_schedule_day_take_two(solver, objective, cou
     # t such that location[t] == 1 and location[t-1] == 0
     # (i.e., student has to travel to allston)
 
+    assert SOLVER_VERSION == 1
+    
     start_time = 8*60-15 # 7:45am
     end_time = 18*60 # 6pm
     lunch_start = 11*60 # 11AM
@@ -525,8 +444,11 @@ def add_constraints_for_one_student_schedule_day_take_two(solver, objective, cou
                                         
 def add_student_schedule_constraints_v1(solver, objective, courses, enroll_d, sched_d):
     """
-    Add constraints to minimize round trips, no lunch days, etc.
+    Add constraints to minimize round trips, no lunch days, etc. Do this by directly adding constraints
+    for each student.
+    This approach doesn't actually scale, so it can't be used except for very small numbers of enrolled students.
     """
+    assert SOLVER_VERSION == 1
     # enroll_d is a dictionary from frozen set of canonical course
     # names (i.e., courses taken in a term) to ints (counting how many
     # students had that set of courses)
@@ -557,15 +479,17 @@ def add_student_schedule_constraints_v1(solver, objective, courses, enroll_d, sc
         # Go through each day of the week
         #!@!for day in range(5):
         for day in [True, False]: # just do MWF and TR, that's good enough
-            add_constraints_for_one_student_schedule_day_take_two(solver, objective, courses, enroll_d, sched_d, fs, day)
+            add_constraints_for_one_student_schedule_day(solver, objective, courses, enroll_d, sched_d, fs, day)
 
 
     print("Total student schedules: %s"%count)
 
 def add_student_schedule_constraints_v2(solver, objective, courses, enroll_d, sched_d):
     """
-    Add constraints to minimize round trips, no lunch days, etc.
+    Add constraints to minimize round trips, no lunch days, etc. Do this by looking at common course pairs taken by students
+    and adding constraints to encourage common Allston pairs to be in adjacent or nearly adjacent meeting times.
     """
+    assert SOLVER_VERSION == 2
     # enroll_d is a dictionary from frozen set of canonical course
     # names (i.e., courses taken in a term) to ints (counting how many
     # students had that set of courses)
@@ -661,7 +585,11 @@ def build_to_schedule_d(csv_in):
                                 
     return to_schedule_d
 
-def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
+def solve_schedule_loop(conflicts_d, sched_d, courses_to_schedule_d, enroll_d, constraints = None, loop_count = None):
+    """
+    Performs one call to the solver to find a schedule.
+    loop_count should be unique
+    """
     # Create the solver
     solver = pywraplp.Solver('CourseSchedule',
     #                         pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
@@ -686,21 +614,47 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
 
     add_area_constraints(solver, objective, courses)
 
-    #add_student_schedule_constraints_v1(solver, objective, courses, enroll_d, sched_d)
-    add_student_schedule_constraints_v2(solver, objective, courses, enroll_d, sched_d)
+    if SOLVER_VERSION == 1:
+        add_student_schedule_constraints_v1(solver, objective, courses, enroll_d, sched_d)
+    elif SOLVER_VERSION == 2:
+        add_student_schedule_constraints_v2(solver, objective, courses, enroll_d, sched_d)
+    else:
+        assert SOLVER_VERSION == 3
 
-    print('Number of courses to schedule =', len(courses_to_schedule_d))
-    print('Number of variables =', solver.NumVariables())
-    print('Number of constraints =', solver.NumConstraints())
-    print("Starting to solve....")
+    if constraints:
+        for cs in constraints:
+            # cs is a list of pairs (cn, mt) of canonical course name cn and meeting time mt
+            # Add constraints to make sure that we can't have the conjunction of these.
+            vars = [courses[cn].vars_meeting_time[mt] for (cn, mt) in cs]
+            if vars:
+                v = solver.IntVar(0, 1, "Soln count %s constraint %s"%(loop_count, cs))
+                makeConjunction(solver, v, vars)
+                cnst = solver.Constraint(0, 0)
+                cnst.SetCoefficient(v, 1)
+
+        
+    if SOLVER_VERSION in [1,2]:
+        print('Number of courses to schedule =', len(courses_to_schedule_d))
+        print('Number of variables =', solver.NumVariables())
+        print('Number of constraints =', solver.NumConstraints())
+        print("Starting to solve....")
+
+    if SOLVER_VERSION == 3:
+        solver.SetTimeLimit(10 * 1000) # 10 second time limit
 
     starttime = datetime.datetime.now()
     result_status = solver.Solve()
     endtime = datetime.datetime.now()
 
     # The problem has an optimal solution.
-    print ("Result status: %s"%result_status)
-    print ("Time: %s seconds"%((endtime-starttime).total_seconds()))
+    if SOLVER_VERSION in [1,2,3]:
+        print ("Result status: %s"%result_status)
+        print ("Time: %s seconds"%((endtime-starttime).total_seconds()))
+
+    if result_status == pywraplp.Solver.FEASIBLE:
+        # we timed out!
+        return None
+    
     assert result_status == pywraplp.Solver.OPTIMAL
 
         
@@ -709,32 +663,134 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
     assert solver.VerifySolution(1e-7, True)
 
     # The objective value of the solution.
-    print('Optimal objective value = ' + str(solver.Objective().Value()))
-    print()
+    if SOLVER_VERSION in [1,2]:
+        print('Optimal objective value = ' + str(solver.Objective().Value()))
+        print()
 
 
-    # Print out the bad conflicts
-    any_conflicts = False
-    for cn1 in conflict_vars_d:
-        for cn2 in conflict_vars_d[cn1]:
-            v = conflict_vars_d[cn1][cn2]
-            if v.solution_value():
-                any_conflicts = True
-                print("%s conflicts with %s (badness %s)"%(cn1, cn2, conflicts_d[cn1][cn2]))
-    if not any_conflicts:
-        print("No bad conflicts!")
+        # Print out the bad conflicts
+        any_conflicts = False
+        for cn1 in conflict_vars_d:
+            for cn2 in conflict_vars_d[cn1]:
+                v = conflict_vars_d[cn1][cn2]
+                if v.solution_value():
+                    any_conflicts = True
+                    print("%s conflicts with %s (badness %s)"%(cn1, cn2, conflicts_d[cn1][cn2]))
+        if not any_conflicts:
+            print("No bad conflicts!")
 
-    print()
+        print()
         
-    for cname in sorted(courses.keys()):
-        c = courses[cname]
-        s = c.solution_meeting_time()
-        print("%-13s scheduled %s"%(cname, ss.meeting_time_to_course_time(s)))
+        for cname in sorted(courses.keys()):
+            c = courses[cname]
+            s = c.solution_meeting_time()
+            print("%-13s scheduled %s"%(cname, ss.meeting_time_to_course_time(s)))
 
     return (solver, courses)
 
+class Solution(object):
+    """
+    Represents a solution, and provides enough info to try new "child solutions"
+    i.e., solutions with additional constraints to avoid problematic course scheduling
+    """
+    def __init__(self, courses, constraints, sched_d, conflicts_d, enroll_d, parent=None, was_rand=False,history=""):
+        self.parent = parent
+        self.was_rand = was_rand
+        self.history = history
+        self.courses_to_mt_d = {cn : courses[cn].solution_meeting_time() for cn in courses}
+        (self.score, rt_blame, lunch_blame) = schedule_score.build_schedule_score(make_sched_d_from_solution(sched_d, self.courses_to_mt_d), conflicts_d, enroll_d)
+        self.simple_score = self.score['simple_score']
+        self.constraints = constraints
+
+        bad_rt_courses = sorted(list(rt_blame.keys()), key=lambda k:rt_blame[k], reverse = True)
+        # bad_rt_courses is a list of sets of courses that caused multiple Allston round trips, sorted with the worst first.
+        # Just take a few of them
+        bad_rt_courses = bad_rt_courses[:3]
+
+        bad_lunch_courses = sorted(list(lunch_blame.keys()), key=lambda k:lunch_blame[k], reverse = True)
+        # bad_lunch_courses is a list of sets of courses that caused students to miss lunch, sorted with the worst first.
+        # Just take a few of them
+        bad_lunch_courses = bad_lunch_courses[:3]
+        
+        # Set up the constraints for child solutions.
+        # Needs to be a list of list of pairs (cn, mt) of canonical course name cn and meeting time mt
+        cc = []
+        for cs in bad_rt_courses:
+            cc.append([(cn, self.courses_to_mt_d[cn]) for cn in cs])
+            
+        for cs in bad_lunch_courses:
+            cc.append([(cn, self.courses_to_mt_d[cn]) for cn in cs])
+
+        self.child_constraints = cc
+
+
+def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
+    (solver,courses) = solve_schedule_loop(conflicts_d, sched_d, courses_to_schedule_d, enroll_d)
     
-def output_schedule_brief(cout, courses_to_schedule_d, courses):
+    if SOLVER_VERSION in [1,2]:
+        return {cn : courses[cn].solution_meeting_time() for cn in courses}
+
+    # For version 3 of the solver, we will find a solution, and then try to incrementally find a better one.
+    current_best_soln = Solution(courses, [], sched_d, conflicts_d, enroll_d)
+    pending = [current_best_soln]
+    loop_count = 0
+
+    print("Call %s is new best: score %s"%(loop_count,current_best_soln.simple_score))
+
+    loop_start = datetime.datetime.now()
+    time_limit = datetime.timedelta(seconds=10)
+    while pending:
+        if (datetime.datetime.now() - loop_start) > time_limit:
+            #reached our time limits
+            print("Time limit reached! %s"%time_limit)
+            break
+
+        # some of the time, pick a random solution to expand, otherwise, pick the best of the queue
+        if False: #!@!random.randrange(100) < 20:
+            s = pending.pop(random.randrange(len(pending)))
+            was_rand = True
+        else:
+            # sort pending by simple score
+            was_rand = False
+            pending.sort(key=lambda x: x.simple_score)            
+            s = pending.pop(0)
+            # cull
+            pending = pending[:200]
+
+
+        # Expand the children of s
+        child_index = 0
+        for cc in s.child_constraints:
+            child_cs = list(s.constraints)
+            child_cs.append(cc)
+
+            loop_count += 1
+            
+            res = solve_schedule_loop(conflicts_d, sched_d, courses_to_schedule_d, enroll_d, constraints = child_cs, loop_count = loop_count)
+            if res is None:
+                # we timed out
+                continue
+            
+            (solver,courses) = res
+            csoln = Solution(courses, child_cs, sched_d, conflicts_d, enroll_d,parent=s,was_rand=was_rand,history="child index %s"%child_index)
+            child_index += 1
+            if csoln.simple_score < current_best_soln.simple_score:
+                print("Call %s is new best: score %s"%(loop_count,csoln.simple_score))
+                current_best_soln = csoln
+
+            print("%s:%s"%(loop_count,csoln.simple_score))
+            pending.append(csoln)
+            
+
+    print("History of best solution:")
+    sl = current_best_soln
+    while sl is not None:
+        print("  %s ; child of rand selection? %s; %s"%(sl.simple_score,sl.was_rand,sl.history))
+        sl = sl.parent
+        
+    return current_best_soln.courses_to_mt_d
+    
+def output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d):
     """
     Output a brief version of the schedule, suitable for the Balance tool
     """
@@ -742,7 +798,7 @@ def output_schedule_brief(cout, courses_to_schedule_d, courses):
 
     # first write out the courses we just scheduled
     for cn in sorted(courses_to_schedule_d.keys()):
-        meeting_time = courses[cn].solution_meeting_time()
+        meeting_time = courses_to_mt_d[cn]
         (subj, catalog) = sct.parse_canonical_course_name(cn)
 
         if print_area and subj != print_area:
@@ -765,24 +821,24 @@ def output_schedule_brief(cout, courses_to_schedule_d, courses):
             days = ct.days_of_week(separator='/')
             cout.writerow([cn, days, ct.time_start, ct.time_end, campus])
 
-def make_sched_d_from_solution(schedule_d, courses):
+def make_sched_d_from_solution(schedule_d, courses_to_mt_d):
     # create a dictionary of all the courses.
     allcourses = dict(schedule_d)
 
-    for cn in courses:
-        meeting_time = courses[cn].solution_meeting_time()
+    for cn in courses_to_mt_d:
+        meeting_time = courses_to_mt_d[cn]
         (subj, catalog) = sct.parse_canonical_course_name(cn)
         ct = ss.meeting_time_to_course_time(meeting_time)
         allcourses[cn] = [ct]
 
     return allcourses
 
-def output_schedule_registrar(cout, schedule_d, courses):
+def output_schedule_registrar(cout, schedule_d, courses_to_mt_d):
     """
     Output a version of the schedule, similar to the format supplied by the registerar.
     """
 
-    bbcsd.output_course_schedule(cout, make_sched_d_from_solution(schedule_d, courses))
+    schedule_score.output_course_schedule(cout, make_sched_d_from_solution(schedule_d, courses_to_mt_d))
 
             
 if __name__ == '__main__':
@@ -847,14 +903,14 @@ if __name__ == '__main__':
     cin = csv.reader(fin)
     # discard first row (which contains headers)
     h = next(cin)
-    conflicts_d = bbcsd.build_conflicts_d(cin)    
+    conflicts_d = schedule_score.build_conflicts_d(cin)    
     fin.close()
 
     
     # build the schedule file.
     fin = open(schedule_file, 'r')
     cin = csv.reader(fin)
-    sched_d = bbcsd.build_course_schedule(cin)
+    sched_d = schedule_score.build_course_schedule(cin)
     fin.close()
 
     # Build the student enrollment dictionary
@@ -922,22 +978,22 @@ if __name__ == '__main__':
     for cn in courses_to_schedule_d:
         assert cn not in sched_d, "%s is to be scheduled, but is already in %s"%(cn,schedule_file)
     
-    (solver, courses) = solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d)
+    courses_to_mt_d = solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d)
 
     if output_file:
         # Output the combined schedule to the output file
         fout = open(output_file, 'w')
         cout = csv.writer(fout, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         if registrar_output:
-            output_schedule_registrar(cout, sched_d, courses)
+            output_schedule_registrar(cout, sched_d, courses_to_mt_d)
         else:
-            output_schedule_brief(cout, courses_to_schedule_d, courses)
+            output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d)
             
         fout.close()
 
 
-    output_sched_d = make_sched_d_from_solution(sched_d, courses)
-    res = schedule_score.build_schedule_score(output_sched_d, conflicts_d, enroll_d)
+    output_sched_d = make_sched_d_from_solution(sched_d, courses_to_mt_d)
+    (res, rt_blame, lunch_blame) = schedule_score.build_schedule_score(output_sched_d, conflicts_d, enroll_d)
     print(json.dumps(res, sort_keys=False))
 
     build_allston_graphs.create_graphs(res)
