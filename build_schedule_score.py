@@ -279,7 +279,8 @@ def build_student_schedules(enroll_d, sched_d):
 
 def compute_conflict_score(conflicts_d, sched_d):
     score = 0
-    
+
+    conflict_output_d = {}
     for cn1 in conflicts_d:
         for cn2 in conflicts_d[cn1]:
             if not (cn1 < cn2):
@@ -296,9 +297,14 @@ def compute_conflict_score(conflicts_d, sched_d):
             
             # Let's see if cn1 and cn2 conflict
             if sct.courses_conflict(sched_d[cn1], sched_d[cn2]):
-                print("%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2])))
+                s = "%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2]))
+                conflict_output_d[s] = int(weight)
                 score += float(weight)
 
+    # sort and print conflicts
+    for s in sorted(conflict_output_d.keys(), key= lambda k: conflict_output_d[k]):
+        print(s)
+    
     return score
             
 
@@ -545,7 +551,7 @@ if __name__ == '__main__':
     # Build the schedule file.
     fin = open(schedule_file, 'r')
     cin = csv.reader(fin)
-    sched_d = bbcsd.build_course_schedule(cin,convert_to_allston=False)
+    sched_d = build_course_schedule(cin,convert_to_allston=False)
     fin.close()
 
     # Build the conflict dictionary
@@ -553,7 +559,7 @@ if __name__ == '__main__':
     cin = csv.reader(fin)
     # discard first row (which contains headers)
     h = next(cin)
-    conflicts_d = bbcsd.build_conflicts_d(cin)    
+    conflicts_d = build_conflicts_d(cin)    
     fin.close()
 
     
