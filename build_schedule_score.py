@@ -204,6 +204,7 @@ def build_enrollment_d(cin, sched_d):
         scheds_d[(huid, term)].add(cn)
         
 
+    
     # Now convert it to a dictionary from frozen set of canonical course names (i.e., courses taken in a term) to ints (counting how many students had that set of courses)
     enrollments_d = {}
     for s in scheds_d.values():
@@ -221,6 +222,31 @@ def build_enrollment_d(cin, sched_d):
         else:
             enrollments_d[fs] += 1            
 
+    # Output some descriptive stats
+    if True:
+        print("Multi-year enrollment data: ")
+        print("  Total student-semester schedules: %s "%(len(scheds_d)))
+        print("  Distinct student-semester schedules: %s "%(len(enrollments_d)))
+        hist_d = {}
+        for s in scheds_d.values():
+            fs = frozenset(s)
+            n = num_allston_courses(fs)
+            hist_d[n] = hist_d.get(n,0) + 1
+        print("  Histogram of number of student semester schedules with number of allston courses: %s "%(hist_d))
+
+        print("  Of these, we are acutally using:")
+        hist_d = {}
+        total = 0
+        for fs in enrollments_d.keys():
+            n = num_allston_courses(fs)
+            total +=  enrollments_d[fs]
+            hist_d[n] = hist_d.get(n,0) + enrollments_d[fs]
+        print("      Total student-semester schedules: %s "%(total))
+        print("      Distinct student-semester schedules: %s "%(len(enrollments_d)))
+        print("      Histogram of number of student semester schedules with number of allston courses: %s "%(hist_d))
+        
+        
+    
     return enrollments_d
 
 def num_allston_courses(cns):
