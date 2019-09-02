@@ -27,7 +27,7 @@ def will_be_allston_course(l):
     """
     term, class_num, course_id, subject, catalog, section = [str(x).upper().strip() for x in l[:6]]
 
-    return _current_best(subject, catalog)
+    return will_be_allston_course_subj_catalog(subject, catalog)
 
 
 def will_be_allston_course_canonical_cn(cn):
@@ -55,6 +55,7 @@ def will_be_allston_course_subj_catalog(subject, catalog):
     :return boolean indicating whether the course will be taught in Alston.
     """
     return _current_best(subject, catalog)
+    #return _move_stat_or_econ(subject, catalog)
     
 def _current_best(subject, catalog):
     """
@@ -92,6 +93,18 @@ def _current_best(subject, catalog):
 
 
     # All other courses will be in Cambridge
+    return False
+
+def _move_stat_or_econ(subject, catalog, move_stat = True, move_econ = False):
+    if _current_best(subject, catalog):
+        return True
+
+    if move_stat and subject == "STAT":
+        return True
+
+    if move_econ and subject == "ECON":
+        return True
+    
     return False
 
 def _legacy(l):
