@@ -46,6 +46,7 @@ def create_graphs(dictionary, filename='Schedule_Analysis_Graphs.pdf'):
         ax = df.plot.bar(rot=0, figsize=(8,8), fontsize=10, legend=False)
         ax.set_xlabel(xlabel, fontsize=12, labelpad=10)
         ax.set_ylabel('Number of Students', fontsize=12, labelpad=10)
+        #ax.set_ylim(0,200)
         for p in ax.patches:
             ax.annotate(str(p.get_height()), (p.get_x(), p.get_height()), ha='left',
                         textcoords='offset points', xytext=(0,4), fontsize=10)
