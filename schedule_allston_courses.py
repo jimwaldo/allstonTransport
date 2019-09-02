@@ -738,7 +738,8 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
     print("Call %s is new best: score %s"%(loop_count,current_best_soln.simple_score))
 
     loop_start = datetime.datetime.now()
-    time_limit = datetime.timedelta(seconds=10)
+    time_limit = datetime.timedelta(minutes=10)
+    print("Looking for a good solution, will run for %s"%time_limit)
     while pending:
         if (datetime.datetime.now() - loop_start) > time_limit:
             #reached our time limits
