@@ -54,6 +54,7 @@ def will_be_allston_course_subj_catalog(subject, catalog):
     :param catalog, e.g., "50"
     :return boolean indicating whether the course will be taught in Alston.
     """
+    #return _all_seas(subject, catalog)
     return _current_best(subject, catalog)
     #return _move_stat_or_econ(subject, catalog)
     
@@ -95,6 +96,15 @@ def _current_best(subject, catalog):
     # All other courses will be in Cambridge
     return False
 
+def _all_seas(subject, catalog):
+    if subject == "APPHY" and catalog ==  "50B":
+        return True
+
+    if subject == "ESE":
+        return catalog in ["166", "6"]
+
+    return subject in ["COMPSCI", "ENG-SCI", "BE", "APMTH", "APCOMP"]
+    
 def _move_stat_or_econ(subject, catalog, move_stat = True, move_econ = False):
     if _current_best(subject, catalog):
         return True
