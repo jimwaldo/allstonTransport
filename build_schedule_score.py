@@ -279,7 +279,7 @@ def build_student_schedules(enroll_d, sched_d):
             days[dn] = [ ]
 
         found_courses = []
-        
+
         for cn in fs:
             # cn is a course name
             # sched_d[cn] is a list of sct.course_time objects
@@ -322,7 +322,7 @@ def compute_conflict_score(conflicts_d, sched_d):
                 continue
             
             # Let's see if cn1 and cn2 conflict
-            if sct.courses_conflict(sched_d[cn1], sched_d[cn2]):
+            if sct.courses_conflict(sched_d[cn1], sched_d[cn2]) and (will_be_allston_course_canonical_cn(cn1) or will_be_allston_course_canonical_cn(cn2)):
                 s = "%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2]))
                 conflict_output_d[s] = int(weight)
                 score += float(weight)
@@ -349,7 +349,7 @@ def count_round_trips(student_schedule_d, enroll_d):
     
     for fs in student_schedule_d:
         
-        num_students = enroll_d[fs]
+        num_students = enroll_d.get(fs,0)
         week_count = 0
         for dn in student_schedule_d[fs]:
             lst = student_schedule_d[fs][dn]
@@ -446,7 +446,7 @@ def count_no_lunches(student_schedule_d, enroll_d, only_allston=False, due_to_al
     
     for fs in student_schedule_d:
         
-        num_students = enroll_d[fs]
+        num_students = enroll_d.get(fs,0)
         no_lunch_days = 0
 
         camb_cns = []
