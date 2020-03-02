@@ -20,6 +20,33 @@ import build_allston_graphs
 MIN_COURSES = 3
 DROP_NON_ALLSTON_ENROLLMENTS = True
 
+def col_index(datafile_desc, headers, required_cols, optional_cols):
+
+    cols = {}
+
+    missing = False
+    for cs in required_cols:
+        found = False
+        for c in cs:
+            if c.upper() in [t.upper() for t in headers]:
+                cols[cs[0]] = [t.upper() for t in headers].index(c.upper())
+                found = True
+                break
+        if not found:
+            warnings.warn("Didn't find column %s in %s with headers %s"%(cs[0], datafile_desc, headers))
+            missing = True
+
+    if missing:
+        sys.exit(1)
+
+    for cs in optional_cols:
+        for c in cs:
+            if c.upper() in [t.upper() for t in headers]:
+                cols[cs[0]] = [t.upper() for t in headers].index(c.upper())
+                break
+
+    return cols
+    
 def build_course_schedule(csv_in, convert_to_allston=False):
     """
     Build a representation of a course schedule from a CSV file
@@ -29,31 +56,9 @@ def build_course_schedule(csv_in, convert_to_allston=False):
 
     # Read in the headers and try to make sense of them
     h = next(csv_in)
-    cols = {}
     required_cols = [["SUBJECT"], ["CATALOG"], ["Mtg Start","Meeting Start", "MEETING_START"], ["Mtg End", "Meeting End", "MEETING_END"], ["Mon"], ["Tues"], ["Wed"], ["Thurs"], ["Fri"], ["Sat"], ["Sun"]]
     optional_cols = [["COMPONENT"]]
-
-    missing = False
-    for cs in required_cols:
-        found = False
-        for c in cs:
-            if c.upper() in [t.upper() for t in h]:
-                cols[cs[0]] = [t.upper() for t in h].index(c.upper())
-                found = True
-                break
-        if not found:
-            warnings.warn("Didn't find column %s in course schedule file"%cs[0])
-            missing = True
-
-    if missing:
-        sys.exit(1)
-
-    for cs in optional_cols:
-        for c in cs:
-            if c.upper() in [t.upper() for t in h]:
-                cols[cs[0]] = [t.upper() for t in h].index(c.upper())
-                break
-
+    cols = col_index(h, required_cols, optional_cols)
 
     schedule_d = { }
 
@@ -159,23 +164,10 @@ def build_enrollment_d(cin, sched_d):
 
     # Get rid of unprintable characters in h
     h = [''.join(filter(lambda x: x in string.printable, t)) for t in h]
-    cols = {}
     required_cols = [["HUID"], ["TERM"], ["SUBJECT"], ["CATALOG"]]
-
-    missing = False
-    for cs in required_cols:
-        found = False
-        for c in cs:
-            if c.upper() in [t.upper() for t in h]:
-                cols[cs[0]] = [t.upper() for t in h].index(c.upper())
-                found = True
-                break
-        if not found:
-            warnings.warn("Didn't find column %s in enrollment data file"%cs[0])
-            missing = True
-        
-    if missing:
-        sys.exit(1)
+    optional_cols = []
+    cols = col_index("enrollment data file", h, required_cols, optional_cols)
+    
 
     # First, build a dictionary from (HUID, term) to course schedules.
     scheds_d = { }
