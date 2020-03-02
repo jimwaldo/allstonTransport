@@ -99,7 +99,7 @@ if __name__ == '__main__':
             run_command(cmd_dir,"build_course_times.py", [course_times_filename])
 
 
-        run_command(cmd_dir,"build_student_schedule.py", [])
+        run_command(cmd_dir,"build_student_schedule.py", [enrollments_filename])
         run_command(cmd_dir,"build_transition_d.py", [])
         run_command(cmd_dir,"build_transition_time_d.py", [])
         run_command(cmd_dir,"make_csv_transitions.py", ["transitions.csv"])

@@ -47,10 +47,23 @@ def build_sched(csv_in, student_set, class_time_d):
 
 if __name__ == '__main__':
 
+    def usage():
+        print('Usage: build_student_schedule <enrollments.csv>')
+        sys.exit(1)
+
+    if len(sys.argv) < 2 or len(sys.argv) > 2:
+        usage()
+
+    enrollements_filename = sys.argv[1]
+        
     seas_student_set = md.unpickle_data('SEAS_student_set.pkl')
     class_time_d = md.unpickle_data('class_time_d.pkl')
 
-    fin = open('enrollments.csv', 'r')
+        
+
+
+    
+    fin = open(enrollements_filename, 'r')
     cin = csv.reader(fin)
     h = next(cin)
 
