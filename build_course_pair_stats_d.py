@@ -21,6 +21,7 @@ import warnings
 import sys, csv
 import make_name_dicts as md
 from allston_course_selector import will_be_allston_course_subj_catalog
+from collections import defaultdict
 
 def canonical_course_name(subject, catalog):
     """
@@ -179,13 +180,13 @@ class course_pair_stats(object):
         # number that took cn1 after cn2
         self.num_after = 0
 
-        # number that took cn1 and cn2 withiin one term of each other
+        # number that took cn1 and cn2 within one term of each other
         self.num_within_one = 0
 
-        # number that took cn1 and cn2 withiin two terms of each other        
+        # number that took cn1 and cn2 within two terms of each other        
         self.num_within_two = 0
         
-        # number that took cn1 and cn2 withiin three terms of each other        
+        # number that took cn1 and cn2 within three terms of each other        
         self.num_within_three = 0
 
     def count_student(self, t1, t2):
@@ -229,9 +230,12 @@ class course_stats(object):
         # Number of students that took this course (the first time) in the srping
         self.num_spring = 0
 
+        # Dictionary from term to enrollment count
+        self.term_enrollment = defaultdict(int)
+
     def count_student(self, term):
         """
-        Invoked to count a student that took cn1 in term t1 and cn2 in term t2
+        Invoked to count a student that took this sould in the given term
         """
         self.num_students += 1
         (year, semester) = parse_term(term)
@@ -243,8 +247,15 @@ class course_stats(object):
             
         if semester == "Spring":
             self.num_spring += 1
-            
-def build_career_sched(csv_in):
+
+        self.term_enrollment[term] += 1
+
+    @property
+    def is_large(self):
+        # Course is large if it had more than 100 students in any term
+        return any(enr >= 100 for enr in self.term_enrollment.values())
+        
+def build_career_sched(csv_in, colindex):
     """
     Build (1) a dictionary keyed by student id with value a student career schedule that reflects courses the
     student has taken over their career, and (2) a dictionary keyed by pairs of courses that summarize how many
@@ -255,7 +266,16 @@ def build_career_sched(csv_in):
     """
     st_sched_d = {}
     for l in csv_in:
-        (huid, class_of, concentration, term, subject, catalog) = (l[0], l[3], l[4],l[5],l[8],l[9])
+        huid = l[colindex["HUID"]]
+        concentration = l[colindex["CONCENTRATION"]]
+        term = l[colindex["TERM"]]
+        subject = l[colindex["SUBJECT"]]
+        catalog = l[colindex["CATALOG"]]
+
+        if "CLASS_OF" in colindex:
+            class_of = l[colindex["CLASS_OF"]]
+        else:
+            class_of = None
 
         if huid not in st_sched_d:
             # student is not yet in the dictionary.
@@ -268,6 +288,7 @@ def build_career_sched(csv_in):
         car.add_course(cn, term)
                                 
     return st_sched_d
+
 
 def build_course_pair_stats_d(st_sched_d):
     course_stats_d = {}
@@ -302,6 +323,38 @@ def build_course_pair_stats_d(st_sched_d):
     return (course_pair_stats_d, course_stats_d)
 
 
+def build_column_index(headers, required_cols, optional_cols):
+    """
+    Given a list of headers from the data set,
+    and a list of required column names (required_cols) and a list of optional column names (optional_cols),
+    returns a dictionary from the elements of desired_cols and optional_cols to the index of headers.
+    This utility method is useful to give a little robustness to CSV data files, where the data file
+    might have columns reordered, etc.
+    """
+    index_d = {}
+
+    def canon(s):
+        """
+        Remove spaces, underscores, etc.
+        """
+        return s.lower().replace(" ", "").replace("_","")
+
+    # Canoncize headers, including removing any Unicode BOM bytes.
+    hd = [ canon(s.replace(u'\ufeff','')) for s in headers ]
+    
+    for n in required_cols:
+        cn = canon(n)
+        assert cn in hd, "Expected to find column name %s in CSV file, but only had %s"%(n,headers)
+        index_d[n] = hd.index(cn)
+
+    for n in optional_cols:
+        cn = canon(n)
+        if cn in hd:
+            index_d[n] = hd.index(cn)
+
+    return index_d
+
+
 if __name__ == '__main__':
 
     def usage():
@@ -324,15 +377,17 @@ if __name__ == '__main__':
     cin = csv.reader(fin)
 
     # discard first row (which contains headers)
-    h = next(cin)
+    headers = next(cin)
+    colindex = build_column_index(headers, ["HUID","TERM","SUBJECT","CATALOG", "CONCENTRATION"], ["CLASS_OF"])
 
-
-    st_sched_d = build_career_sched(cin)
+    st_sched_d = build_career_sched(cin, colindex)
 
     fin.close()
     
     res = build_course_pair_stats_d(st_sched_d)
 
-    md.pickle_data('course_pair_stats_d.pkl', res)
+    outfilename = 'course_pair_stats_d.pkl'
+    print('Writing file %s'%outfilename)
+    md.pickle_data(outfilename, res)
 
     
