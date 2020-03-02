@@ -19,7 +19,7 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
                 'Course1_students', 'Prop_course_1_fall', 'Prop_course_1_spring',
                 'Course2_students', 'Prop_course_2_fall', 'Prop_course_2_spring',
                 'in_allston',
-                'allways_diff_semesters',
+                'always_diff_semesters',
                 'Num_students',
                 'Prop_Course1_students', 'Prop_Course2_students',
                 'Num_same_term', 'Prop_same_term',
@@ -28,6 +28,7 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
                 'Num_within_one_semester', 'Prop_within_one_semester',
                 'Num_within_two_semesters', 'Prop_within_two_semesters',
                 'Num_within_three_semesters', 'Prop_within_three_semesters',
+                'Course1_is_large','Course2_is_large','either_large',
                 'Candidate_bad_conflict'
     ]
     csv_out.writerow(header_l)
@@ -38,11 +39,12 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
     printAll = False
     for (cn1, cn2), stats in course_pair_stats_d.items():
         n = stats.num_students
-        if printAll or (n > 40 and stats.in_allston):
+        cn1num = course_stats_d[cn1].num_students
+        cn2num = course_stats_d[cn2].num_students
+        
+        if n > 100 or (n > 50 and (n/cn1num > 0.5 or n/cn2num > 0.5)): # printAll or (n > 40 and stats.in_allston):
             count += 1
 
-            cn1num = course_stats_d[cn1].num_students
-            cn2num = course_stats_d[cn2].num_students
 
             prop_cn1_fall = course_stats_d[cn1].num_fall/cn1num
             prop_cn1_spring = course_stats_d[cn1].num_spring/cn1num
@@ -106,6 +108,9 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
                               str(stats.num_within_one), "{:.2f}".format(prop_within_one),
                               str(stats.num_within_two), "{:.2f}".format(prop_within_two),
                               str(stats.num_within_three), "{:.2f}".format(prop_within_three),
+                              "TRUE" if course_stats_d[cn1].is_large else "FALSE",
+                              "TRUE" if course_stats_d[cn2].is_large else "FALSE",
+                              "TRUE" if (course_stats_d[cn1].is_large or course_stats_d[cn2].is_large) else "FALSE",
                               "TRUE" if is_candidate_bad_conflict() else "FALSE"
             ])
 
