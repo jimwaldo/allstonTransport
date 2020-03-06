@@ -76,7 +76,7 @@ def _current_best(subject, catalog):
     if subject == "APMTH":
         return catalog in ["101", "106", "121", "207", "227", "254", "50A", "107", "221", "231"]
 
-    if subject == "APPHY" and catalog ==  "50B":
+    if subject == "APPHY" and catalog in ["50A", "50B"]:
         return True
 
     if subject == "BE":
