@@ -13,11 +13,13 @@ import pickle, csv, sys
 import make_name_dicts as md
 import operator as op
 from collections import OrderedDict
-from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name, section_only_courses
+from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name
 import scheduling_course_time as sct
+from harvard_course_info import no_lecture_courses
 
 def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, csv_out):
     header_l =[ 'Course1', 'Course2',
+                'Weighted_conflict_score',
                 'Course1_students', 'Prop_course_1_fall', 'Prop_course_1_spring',
                 'Course2_students', 'Prop_course_2_fall', 'Prop_course_2_spring',
                 'in_allston',
@@ -78,35 +80,43 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, 
 
             (subj1, cat1) = parse_canonical_course_name(cn1)
             (subj2, cat2) = parse_canonical_course_name(cn2)
-            
-            def is_candidate_bad_conflict():
-                if cn1 in section_only_courses or cn2 in section_only_courses:
-                    # one of the courses does not have lectures.
-                    return False
-                
-                no_lectures = ["ENG-SCI 100HFB", "ENG-SCI 91R", "COMPSCI 91R" ]
-                if cn1 in no_lectures or cn2 in no_lectures:
+
+            def bad_conflict_score():
+                if cn1 in no_lecture_courses or cn2 in no_lecture_courses:
                     # Has no lecture
-                    return False
+                    return 0.0
                 
                 if subj1 in ['SOCWORLD', 'CULTBLF', 'US-WORLD', 'ETHRSON', 'SCILIVSY', 'SCIPHUNV', 'AESTHINT', 'INDSTUDY']:
                     # Ignore Gen Eds
-                    return False
+                    return 0.0
                 if subj2 in ['SOCWORLD', 'CULTBLF', 'US-WORLD', 'ETHRSON', 'SCILIVSY', 'SCIPHUNV', 'AESTHINT', 'INDSTUDY']:
                     # Ignore Gen Eds
-                    return False
+                    return 0.0
                 
                 # ignore them if they are in different semesters
                 if always_diff_semester:
-                    return False
+                    return 0.0
                 
                 if prop_same_term >= 0.4:
-                    return True
+                    return 1.0
                 if prop_within_three >= 0.7 and prop_before >= 0.13 and prop_after >= 0.13:
-                    return True
+                    return 1.0
+
+                # Use a sliding scale for the rest...
+                score1 = prop_same_term / 0.4
+                score2 = min(prop_within_three / 0.7, 1.0) * min(prop_before / 0.13, 1.0) * min(prop_after / 0.13, 1.0)
+                assert score1 >= 0.0 and score1 <= 1.0
+                assert score2 >= 0.0 and score2 <= 1.0
+                return max(score1, score2)
 
 
-            if is_candidate_bad_conflict():
+
+            # A weighted score on how much we should try to avoid this conflict
+            bc_score = bad_conflict_score()
+            weighted_score = bc_score * stats.num_within_two
+            is_candidate_bad_conflict = bc_score >= 1.0
+            
+            if is_candidate_bad_conflict:
                 count_candidate += 1
 
             conflicts = []
@@ -118,8 +128,10 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, 
                         confl = "TRUE"
 
                 conflicts.append(confl)
-                
+
+            
             csv_out.writerow([cn1, cn2,
+                              str(int(weighted_score)),
                               str(cn1num), "{:.2f}".format(prop_cn1_fall), "{:.2f}".format(prop_cn1_spring),
                               str(cn2num), "{:.2f}".format(prop_cn2_fall), "{:.2f}".format(prop_cn2_spring),
                               stats.in_allston,
@@ -135,7 +147,7 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, 
                               "TRUE" if course_stats_d[cn1].is_large else "FALSE",
                               "TRUE" if course_stats_d[cn2].is_large else "FALSE",
                               "TRUE" if (course_stats_d[cn1].is_large or course_stats_d[cn2].is_large) else "FALSE",
-                              "TRUE" if is_candidate_bad_conflict() else "FALSE"]
+                              "TRUE" if is_candidate_bad_conflict else "FALSE"]
                              + conflicts)
 
     print("%s course pairs output, %s candidates for bad conflicts"%(count, count_candidate))

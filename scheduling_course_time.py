@@ -12,6 +12,8 @@ import warnings
 import sys, csv
 import class_time as ct
 from allston_course_selector import will_be_allston_course_subj_catalog
+from harvard_course_info import cross_list_canonical, is_cross_list_canonical
+
 
 def canonical_course_name(subject, catalog):
     """
@@ -188,6 +190,9 @@ def build_course_schedule(csv_in, convert_to_allston=False, filename="some file"
             continue
 
         cn = canonical_course_name(subj, cat)
+        cn = cross_list_canonical(cn)
+        assert is_cross_list_canonical(cn)
+
         ct = course_time(start_time, end_time, mon, tue, wed, thu, fri, sat, sun)
 
         if convert_to_allston:

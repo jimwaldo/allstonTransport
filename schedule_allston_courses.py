@@ -12,6 +12,7 @@ import warnings
 import sys, csv, math, datetime
 import class_time as ct
 from allston_course_selector import will_be_allston_course_subj_catalog
+from harvard_course_info import cross_list_canonical, is_cross_list_canonical, non_FAS_instructor
 import schedule_slots as ss
 from ortools.linear_solver import pywraplp
 import scheduling_course_time as sct
@@ -31,7 +32,7 @@ PARAMS =  {
     'WEIGHT_BAD_CONFLICT_FACTOR' : 1000000,
 
     # area balance and instructor preferences/requirements
-    'WEIGHT_AVOID_COURSES_TU_3_TO_5' : 10000,
+    'WEIGHT_AVOID_COURSES_TU_3_TO_5' : 50000000,
     'WEIGHT_AVOID_COURSES_FRIDAY' : 100,
     'WEIGHT_AVOID_CS_COURSES_IN_FAC_LUNCH_OR_COLLOQ' : 1000,
     'WEIGHT_DIFF_NUM_COURSES_DAY_OF_WEEK' : 100,
@@ -158,8 +159,9 @@ class Course:
                 objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_AVOID_SLOT_7']) 
 
             if asl[0]=="T" and asl[1] in ["4", "5"]:
-                # avoid any teaching on Tuesday 3pm-5pm
-                objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_AVOID_COURSES_TU_3_TO_5']) 
+                if self.name not in non_FAS_instructor:
+                    # avoid any teaching on Tuesday 3pm-5pm for FAS instructors
+                    objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_AVOID_COURSES_TU_3_TO_5'])
 
             if asl[0]=="F":
                 # avoid Friday teaching, to mimic faculty preferences
@@ -576,6 +578,8 @@ def build_to_schedule_d(csv_in):
 
         # Check we can parse the course name
         sct.parse_canonical_course_name(cn)
+
+        assert is_cross_list_canonical(cn)
         
         if cn in to_schedule_d:
             warnings.warn("Duplicate entry! %s listed more than once"%(cn))
@@ -599,6 +603,7 @@ def solve_schedule_loop(conflicts_d, sched_d, courses_to_schedule_d, enroll_d, c
     courses = {}
     # Let each constraint create its variables and constraints
     for cname in courses_to_schedule_d:
+        assert is_cross_list_canonical(cname)
         courses[cname] = Course(cname, courses_to_schedule_d[cname][0], courses_to_schedule_d[cname][1])
         courses[cname].createVarsAndConstraints(solver)
 
@@ -738,7 +743,7 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
     print("Call %s is new best: score %s"%(loop_count,current_best_soln.simple_score))
 
     loop_start = datetime.datetime.now()
-    time_limit = datetime.timedelta(minutes=10)
+    time_limit = datetime.timedelta(minutes=3)
     print("Looking for a good solution, will run for %s"%time_limit)
     while pending:
         if (datetime.datetime.now() - loop_start) > time_limit:
@@ -800,6 +805,7 @@ def output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d):
     # first write out the courses we just scheduled
     for cn in sorted(courses_to_schedule_d.keys()):
         meeting_time = courses_to_mt_d[cn]
+        assert is_cross_list_canonical(cn)
         (subj, catalog) = sct.parse_canonical_course_name(cn)
 
         if print_area and subj != print_area:
@@ -812,6 +818,7 @@ def output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d):
 
     # Now write out all the other courses
     for cn in sorted(sched_d.keys()):
+        assert is_cross_list_canonical(cn)
         (subj, catalog) = sct.parse_canonical_course_name(cn)
         if print_area and subj != print_area:
             continue
@@ -827,6 +834,7 @@ def make_sched_d_from_solution(schedule_d, courses_to_mt_d):
     allcourses = dict(schedule_d)
 
     for cn in courses_to_mt_d:
+        assert is_cross_list_canonical(cn)
         meeting_time = courses_to_mt_d[cn]
         (subj, catalog) = sct.parse_canonical_course_name(cn)
         ct = ss.meeting_time_to_course_time(meeting_time)

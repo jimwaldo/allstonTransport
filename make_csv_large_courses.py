@@ -14,6 +14,8 @@ import make_name_dicts as md
 import operator as op
 from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name, term_cmp
 from allston_course_selector import will_be_allston_course_canonical_cn
+from harvard_course_info import is_cross_list_canonical
+
 
 from functools import cmp_to_key
 
@@ -33,6 +35,8 @@ def write_large_courses_csv(course_pair_stats_d, course_stats_d, csv_out):
 
     count = 0
     for cn, stats in sorted(course_stats_d.items()):
+        assert is_cross_list_canonical(cn)
+        
         if stats.is_large:
             vals = [cn, "True" if will_be_allston_course_canonical_cn(cn) else "False"]
             vals += [stats.term_enrollment[tk] for tk in term_keys]

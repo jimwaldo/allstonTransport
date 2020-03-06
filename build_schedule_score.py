@@ -94,8 +94,10 @@ def build_conflicts_d(csv_in):
             warnings.warn("In file, the course names aren't in alphabetical order: %s is not alphabetically before %s"%(c1,c2))
             (c1, c2) = (c2, c1)
 
-        add_conflict(c1, c2, w)
-        add_conflict(c2, c1, w) # add it in the other order, to make it easier to look up...
+        w = int(w)
+        if w > 0:
+            add_conflict(c1, c2, w)
+            add_conflict(c2, c1, w) # add it in the other order, to make it easier to look up...
                                 
     return conflicts_d
 
@@ -263,7 +265,7 @@ def compute_conflict_score(conflicts_d, sched_d):
                 continue
             
             # Let's see if cn1 and cn2 conflict
-            if sct.courses_conflict(sched_d[cn1], sched_d[cn2]) and (will_be_allston_course_canonical_cn(cn1) or will_be_allston_course_canonical_cn(cn2)):
+            if weight > 0 and sct.courses_conflict(sched_d[cn1], sched_d[cn2]) and (will_be_allston_course_canonical_cn(cn1) or will_be_allston_course_canonical_cn(cn2)):
                 s = "%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2]))
                 conflict_output_d[s] = int(weight)
                 score += float(weight)

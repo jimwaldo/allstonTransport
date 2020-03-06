@@ -22,10 +22,8 @@ import sys, csv
 import make_name_dicts as md
 from allston_course_selector import will_be_allston_course_subj_catalog
 from collections import defaultdict
+from harvard_course_info import cross_list_canonical, is_cross_list_canonical, no_lecture_courses
 
-# Courses that are section only, without lectures that need scheduyling. We won't report conflicts with these, or even regard them as "large courses"
-# since they do not have central lectures that we need to worry about scheduling.
-section_only_courses = ["EXPOS 20", "MATH 1A", "MATH 1B", "MATH 21A", "MATH 21B", "ECON 970", "EXPOS 10", "EXPOS 40"]
 
 def canonical_course_name(subject, catalog):
     """
@@ -139,6 +137,8 @@ class career(object):
         self.courses_d = {}
 
     def add_course(self, cn, term):
+        assert is_cross_list_canonical(cn), cn
+        
         if is_summer_term(term):
             # don't bother recording summer terms
             return
@@ -168,6 +168,8 @@ class course_pair_stats(object):
         self.cn2 = cn2 
         assert cn1 < cn2, "%s not less than %s"%(cn1,cn2)
 
+        assert is_cross_list_canonical(cn1)
+        assert is_cross_list_canonical(cn2)
 
         # Is at least one of the courses to be in allston?
         self.in_allston = in_allston
@@ -224,6 +226,8 @@ class course_stats(object):
     """
     def __init__(self, cn):
         self.cn = cn
+
+        assert is_cross_list_canonical(cn)
         
         # Number of students that took this course (at least once) in their career (in the spring or fall)
         self.num_students = 0
@@ -261,7 +265,7 @@ class course_stats(object):
         if self.cn in ['COMPSCI 20', 'COMPSCI 109A', 'COMPSCI 109B', 'APPHY 50A', 'APPHY 50B']:
             return True
 
-        if self.cn in section_only_courses:
+        if self.cn in no_lecture_courses:
             return False
         
         return len([True for enr in self.term_enrollment.values() if enr >= 100]) > 1
@@ -296,6 +300,7 @@ def build_career_sched(csv_in, colindex):
 
         
         cn = canonical_course_name(subject, catalog)
+        cn = cross_list_canonical(cn)
         car.add_course(cn, term)
                                 
     return st_sched_d
