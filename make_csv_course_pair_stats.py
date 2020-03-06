@@ -13,7 +13,7 @@ import pickle, csv, sys
 import make_name_dicts as md
 import operator as op
 from collections import OrderedDict
-from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name
+from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name, section_only_courses
 import scheduling_course_time as sct
 
 def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, csv_out):
@@ -80,9 +80,8 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, 
             (subj2, cat2) = parse_canonical_course_name(cn2)
             
             def is_candidate_bad_conflict():
-                lots_of_sections = ["EXPOS 20", "MATH 1A", "MATH 1B", "MATH 21A", "MATH 21B", "ECON 970", "EXPOS 10", "EXPOS 40"]
-                if cn1 in lots_of_sections or cn2 in lots_of_sections:
-                    # one of the courses has lots of sections                    
+                if cn1 in section_only_courses or cn2 in section_only_courses:
+                    # one of the courses does not have lectures.
                     return False
                 
                 no_lectures = ["ENG-SCI 100HFB", "ENG-SCI 91R", "COMPSCI 91R" ]

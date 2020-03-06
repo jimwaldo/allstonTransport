@@ -23,6 +23,10 @@ import make_name_dicts as md
 from allston_course_selector import will_be_allston_course_subj_catalog
 from collections import defaultdict
 
+# Courses that are section only, without lectures that need scheduyling. We won't report conflicts with these, or even regard them as "large courses"
+# since they do not have central lectures that we need to worry about scheduling.
+section_only_courses = ["EXPOS 20", "MATH 1A", "MATH 1B", "MATH 21A", "MATH 21B", "ECON 970", "EXPOS 10", "EXPOS 40"]
+
 def canonical_course_name(subject, catalog):
     """
     Put a course name in canonical form (e.g., "ECON 10A")
@@ -252,8 +256,15 @@ class course_stats(object):
 
     @property
     def is_large(self):
-        # Course is large if it had more than 100 students in any term
-        return any(enr >= 100 for enr in self.term_enrollment.values())
+        # Course is large if it had more than 100 students in at least 2 terms
+        # Also have some hard coded exceptions
+        if self.cn in ['COMPSCI 20', 'COMPSCI 109A', 'COMPSCI 109B', 'APPHY 50A', 'APPHY 50B']:
+            return True
+
+        if self.cn in section_only_courses:
+            return False
+        
+        return len([True for enr in self.term_enrollment.values() if enr >= 100]) > 1
         
 def build_career_sched(csv_in, colindex):
     """
