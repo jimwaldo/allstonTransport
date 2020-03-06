@@ -65,7 +65,7 @@ def normalize_time(t):
     Takes a string representing time as {h}h:mm{:ss}? {AM|PM} and turns it into a 24 hour time of the form hh:mm. This
     will remain a string, but leading zeros will be inserted so that the times sort correctly. This is a reasonably
     disguisting hack, but made necessary by the way the registrar stores times
-    :param t: a string representing a time in the form {h}h:mm:ss {AM|PM}
+    :param t: a string representing a time in the form {h}h:mm{:ss}? {AM|PM}
     :return: a string representing the 24 hour representation of the string as hh:mm
     """
     if t == '':
@@ -73,7 +73,12 @@ def normalize_time(t):
 
     start = t.find(':')
     hr = t[:start]
-    if (t[-2:] == 'PM') and (hr != '12'):
+    assert hr.isdigit()
+    
+    ampm = t[-2:].upper()
+    assert ampm in ['AM','PM'], "ampm is %s, string is %s"%(ampm, t)
+    
+    if (ampm == 'PM') and (hr != '12'):
         hold = int(hr)
         hold += 12
         hr = str(hold)
