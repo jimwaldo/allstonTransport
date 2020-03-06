@@ -40,12 +40,12 @@ class course_time(object):
     The object used to represent the time  and days that a course meets
     """
 
-    def __init__(self, time_start, time_end, mon, tue, wed, thu, fri, sat, sun):
+    def __init__(self, time_start, time_end, mon, tue, wed, thu, fri, sat, sun, normalized_time = False):
         """
         Create an object that represents the time a course is taught.
         """
-        self.time_start = ct.normalize_time(time_start)
-        self.time_end = ct.normalize_time(time_end)
+        self.time_start = time_start if normalized_time else ct.normalize_time(time_start)
+        self.time_end = time_end if normalized_time else ct.normalize_time(time_end)
         self.days = []
         for d in [mon, tue, wed, thu, fri, sat, sun]:
             self.days.append(d == 'Y' or d == True)
@@ -68,7 +68,7 @@ class course_time(object):
         my_start = my_start_h*60 + my_start_m
         my_end = my_end_h*60 + my_end_m
 
-        assert my_start <= my_end
+        assert my_start <= my_end, "Time isn't valid: %s-%s"%(self.time_start, self.time_end)
         
         return (my_start, my_end)
         
@@ -121,3 +121,84 @@ def courses_conflict(sched1, sched2):
     return False
     
 
+def build_course_schedule(csv_in, convert_to_allston=False, filename="some file"):
+    """
+    Build a representation of a course schedule from a CSV file
+    input: csv_in is a CSV file (including header row)
+    output: dictionary from canonical course name to list of course_time objects
+    """
+
+    def col_index(datafile_desc, headers, required_cols, optional_cols):
+
+        cols = {}
+
+        missing = False
+        for cs in required_cols:
+            found = False
+            for c in cs:
+                if c.upper() in [t.upper() for t in headers]:
+                    cols[cs[0]] = [t.upper() for t in headers].index(c.upper())
+                    found = True
+                    break
+            if not found:
+                warnings.warn("Didn't find column %s in %s with headers %s"%(cs[0], datafile_desc, headers))
+                missing = True
+
+        if missing:
+            sys.exit(1)
+
+        for cs in optional_cols:
+            for c in cs:
+                if c.upper() in [t.upper() for t in headers]:
+                    cols[cs[0]] = [t.upper() for t in headers].index(c.upper())
+                    break
+
+        return cols
+    
+    # Read in the headers and try to make sense of them
+    h = next(csv_in)
+    required_cols = [["SUBJECT"], ["CATALOG"], ["Mtg Start","Meeting Start", "MEETING_START"], ["Mtg End", "Meeting End", "MEETING_END"], ["Mon"], ["Tues"], ["Wed"], ["Thurs"], ["Fri"], ["Sat"], ["Sun"]]
+    optional_cols = [["COMPONENT"]]
+    cols = col_index(filename, h, required_cols, optional_cols)
+
+    schedule_d = { }
+
+    # Now we can go through the rest of the file building up the schedule entries
+    for l in csv_in:
+        (subj, cat, start_time, end_time, mon, tue, wed, thu, fri, sat, sun) = (l[cols["SUBJECT"]],
+                                                                                l[cols["CATALOG"]],
+                                                                                l[cols["Mtg Start"]],
+                                                                                l[cols["Mtg End"]],
+                                                                                l[cols["Mon"]],
+                                                                                l[cols["Tues"]],
+                                                                                l[cols["Wed"]],
+                                                                                l[cols["Thurs"]],
+                                                                                l[cols["Fri"]],
+                                                                                l[cols["Sat"]],
+                                                                                l[cols["Sun"]])
+        component = None
+        if "COMPONENT" in cols:
+            component = l[cols["COMPONENT"]]
+            if component in ["Laboratory", "Discussion", "Conference","LAB","DIS","CNC","RR","THE","LRE"]:
+                # ignore labs and discussions and other things
+                continue
+            
+        if start_time == "" or end_time == "":
+            # no times, just ignore it
+            continue
+
+        cn = canonical_course_name(subj, cat)
+        ct = course_time(start_time, end_time, mon, tue, wed, thu, fri, sat, sun)
+
+        if convert_to_allston:
+            warnings.warn("Don't currently support convert_to_allston in scheduling_course_time.py function build_course_schedule")
+            sys.exit(2)
+        # if convert_to_allston and will_be_allston_course_subj_catalog(subj, cat):
+        #     ct.convert_to_allston(cn)
+        
+        if cn not in schedule_d:
+            schedule_d[cn] = []
+
+        schedule_d[cn].append(ct)
+
+    return schedule_d

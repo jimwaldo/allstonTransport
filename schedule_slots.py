@@ -138,7 +138,8 @@ def meeting_time_to_course_time(mt):
                            "R" in days,
                            "F" in days,
                            False, # Saturday
-                           False) # Sunday
+                           False, # Sunday
+                           normalized_time = True)
 
 def distance_between_meeting_times(mt1, mt2):
     """

@@ -17,7 +17,7 @@ from allston_course_selector import will_be_allston_course_canonical_cn
 import scheduling_course_time as sct
 import build_allston_graphs
 
-MIN_COURSES = 3
+MIN_COURSES = 2
 DROP_NON_ALLSTON_ENROLLMENTS = True
 
 def col_index(datafile_desc, headers, required_cols, optional_cols):
@@ -47,57 +47,6 @@ def col_index(datafile_desc, headers, required_cols, optional_cols):
 
     return cols
     
-def build_course_schedule(csv_in, convert_to_allston=False):
-    """
-    Build a representation of a course schedule from a CSV file
-    input: csv_in is a CSV file (including header row)
-    output: dictionary from canonical course name to list of sct.course_time objects
-    """
-
-    # Read in the headers and try to make sense of them
-    h = next(csv_in)
-    required_cols = [["SUBJECT"], ["CATALOG"], ["Mtg Start","Meeting Start", "MEETING_START"], ["Mtg End", "Meeting End", "MEETING_END"], ["Mon"], ["Tues"], ["Wed"], ["Thurs"], ["Fri"], ["Sat"], ["Sun"]]
-    optional_cols = [["COMPONENT"]]
-    cols = col_index(h, required_cols, optional_cols)
-
-    schedule_d = { }
-
-    # Now we can go through the rest of the file building up the schedule entries
-    for l in csv_in:
-        (subj, cat, start_time, end_time, mon, tue, wed, thu, fri, sat, sun) = (l[cols["SUBJECT"]],
-                                                                                l[cols["CATALOG"]],
-                                                                                l[cols["Mtg Start"]],
-                                                                                l[cols["Mtg End"]],
-                                                                                l[cols["Mon"]],
-                                                                                l[cols["Tues"]],
-                                                                                l[cols["Wed"]],
-                                                                                l[cols["Thurs"]],
-                                                                                l[cols["Fri"]],
-                                                                                l[cols["Sat"]],
-                                                                                l[cols["Sun"]])
-        component = None
-        if "COMPONENT" in cols:
-            component = l[cols["COMPONENT"]]
-            if component in ["Laboratory", "Discussion", "Conference","LAB","DIS","CNC","RR","THE","LRE"]:
-                # ignore labs and discussions and other things
-                continue
-            
-        if start_time == "" or end_time == "":
-            # no times, just ignore it
-            continue
-
-        cn = sct.canonical_course_name(subj, cat)
-        ct = sct.course_time(start_time, end_time, mon, tue, wed, thu, fri, sat, sun)
-
-        if convert_to_allston and will_be_allston_course_subj_catalog(subj, cat):
-            ct.convert_to_allston(cn)
-        
-        if cn not in schedule_d:
-            schedule_d[cn] = []
-
-        schedule_d[cn].append(ct)
-
-    return schedule_d
 
 def output_course_schedule(cout, schedule_d):
     """
@@ -569,7 +518,7 @@ if __name__ == '__main__':
     # Build the schedule file.
     fin = open(schedule_file, 'r')
     cin = csv.reader(fin)
-    sched_d = build_course_schedule(cin,convert_to_allston=False)
+    sched_d = sct.build_course_schedule(cin,convert_to_allston=False, filename="schedule_file")
     fin.close()
 
     # Build the conflict dictionary

@@ -12,9 +12,11 @@ import pickle, csv, sys
 
 import make_name_dicts as md
 import operator as op
+from collections import OrderedDict
 from build_course_pair_stats_d import course_pair_stats, course_stats, parse_canonical_course_name
+import scheduling_course_time as sct
 
-def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
+def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, csv_out):
     header_l =[ 'Course1', 'Course2',
                 'Course1_students', 'Prop_course_1_fall', 'Prop_course_1_spring',
                 'Course2_students', 'Prop_course_2_fall', 'Prop_course_2_spring',
@@ -31,6 +33,10 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
                 'Course1_is_large','Course2_is_large','either_large',
                 'Candidate_bad_conflict'
     ]
+
+    for term in schedules:
+        header_l += ['conflict %s'%term]
+    
     csv_out.writerow(header_l)
 
     count = 0
@@ -41,7 +47,16 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
         n = stats.num_students
         cn1num = course_stats_d[cn1].num_students
         cn2num = course_stats_d[cn2].num_students
-        
+
+        grad = False
+
+        show_if_above = 100
+        show_if_prop_high = 50
+
+        if grad:
+            show_if_above = 50
+            show_if_prop_high = 20
+            
         if n > 100 or (n > 50 and (n/cn1num > 0.5 or n/cn2num > 0.5)): # printAll or (n > 40 and stats.in_allston):
             count += 1
 
@@ -65,7 +80,7 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
             (subj2, cat2) = parse_canonical_course_name(cn2)
             
             def is_candidate_bad_conflict():
-                lots_of_sections = ["EXPOS 20", "MATH 1A", "MATH 1B", "MATH 21A", "MATH 21B"]
+                lots_of_sections = ["EXPOS 20", "MATH 1A", "MATH 1B", "MATH 21A", "MATH 21B", "ECON 970", "EXPOS 10", "EXPOS 40"]
                 if cn1 in lots_of_sections or cn2 in lots_of_sections:
                     # one of the courses has lots of sections                    
                     return False
@@ -94,6 +109,16 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
 
             if is_candidate_bad_conflict():
                 count_candidate += 1
+
+            conflicts = []
+            for term in schedules:
+                sched = schedules[term]
+                confl = "FALSE"
+                if cn1 in sched and cn2 in sched:
+                    if sct.courses_conflict(sched[cn1], sched[cn2]):
+                        confl = "TRUE"
+
+                conflicts.append(confl)
                 
             csv_out.writerow([cn1, cn2,
                               str(cn1num), "{:.2f}".format(prop_cn1_fall), "{:.2f}".format(prop_cn1_spring),
@@ -111,24 +136,54 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, csv_out):
                               "TRUE" if course_stats_d[cn1].is_large else "FALSE",
                               "TRUE" if course_stats_d[cn2].is_large else "FALSE",
                               "TRUE" if (course_stats_d[cn1].is_large or course_stats_d[cn2].is_large) else "FALSE",
-                              "TRUE" if is_candidate_bad_conflict() else "FALSE"
-            ])
+                              "TRUE" if is_candidate_bad_conflict() else "FALSE"]
+                             + conflicts)
 
     print("%s course pairs output, %s candidates for bad conflicts"%(count, count_candidate))
 
 if __name__ == '__main__':
     def usage():
-        print('Usage: python make_csv_course_pair_stats.py out_file.csv')
+        print('Usage: python make_csv_course_pair_stats.py out_file.csv [-schedule "Term name" schedule.csv]*')
+        print('  Zero or more schedule options can be passed, which will be used')
+        print('  to indicate whether the course pairs conflict in that term.')
+        print('  For example -schedule "Fall 2019" course_times_2019_fall.csv -schedule "Spring 2020" course_times_2020_spring.csv')
         sys.exit(1)
 
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         usage()
 
-    out_file = open(sys.argv[1], 'w')
+    outfilename = sys.argv[1]    
+    # try to parse outputs
+    ind = 2
+    schedules = OrderedDict()
+    while True:
+        if len(sys.argv) == ind:
+            # we are at the end
+            break
+
+        if len(sys.argv) < ind+2:
+            usage()
+
+        if sys.argv[ind] not in ['-schedule', '-sched']:
+            usage()
+
+        
+        term_name = sys.argv[ind+1]
+        sched_filename = sys.argv[ind+2]
+        ind += 3
+
+        # open the file
+        fschedin = open(sched_filename, 'r')
+        cschedin = csv.reader(fschedin)
+        sched_d = sct.build_course_schedule(cschedin,filename=sched_filename)
+        fschedin.close()
+        schedules[term_name] = sched_d
+        
+    out_file = open(outfilename, 'w')
 
 
     (course_pair_stats_d, course_stats_d) = md.unpickle_data('course_pair_stats_d.pkl')
     c_out = csv.writer(out_file)
-    write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, c_out)
+    write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules, c_out)
         
     out_file.close()
