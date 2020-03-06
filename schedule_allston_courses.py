@@ -902,7 +902,7 @@ if __name__ == '__main__':
     # Build the conflicts file
     fin = open(conflict_file, 'r')
     cin = csv.reader(fin)
-    # discard first row (which contains headers)
+    # discard first row (which contains headers).
     h = next(cin)
     conflicts_d = schedule_score.build_conflicts_d(cin)    
     fin.close()
@@ -911,7 +911,7 @@ if __name__ == '__main__':
     # build the schedule file.
     fin = open(schedule_file, 'r')
     cin = csv.reader(fin)
-    sched_d = schedule_score.build_course_schedule(cin)
+    sched_d = sct.build_course_schedule(cin, filename=schedule_file)
     fin.close()
 
     # Build the student enrollment dictionary
