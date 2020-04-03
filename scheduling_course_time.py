@@ -35,7 +35,7 @@ def parse_canonical_course_name(cn):
     
     return (subject, catalog)
 
-DAYNAMES = ['M','T','W','Th','F','Sa','Su']
+DAYNAMES = ['M','T','W',"Th",'F','Sa','Su']
 
 class course_time(object):
     """
@@ -55,9 +55,19 @@ class course_time(object):
     def __str__(self):
         return self.time_start+"-"+self.time_end + " " + self.days_of_week()
 
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__ and
+            self.time_start == other.time_start and
+            self.time_end == other.time_end and
+            self.days == other.days
+        )
 
     def days_of_week(self, separator=""):
-        return separator.join([n for (d,n) in zip(self.days, DAYNAMES) if d])
+        days = [n for (d,n) in zip(self.days, DAYNAMES) if d]
+        if separator is None:
+            return days
+        return separator.join(days)
 
     def time_as_interval(self):
         """
@@ -191,7 +201,7 @@ def build_course_schedule(csv_in, convert_to_allston=False, filename="some file"
 
         cn = canonical_course_name(subj, cat)
         cn = cross_list_canonical(cn)
-        assert is_cross_list_canonical(cn)
+        assert is_cross_list_canonical(cn), cn
 
         ct = course_time(start_time, end_time, mon, tue, wed, thu, fri, sat, sun)
 
@@ -204,6 +214,7 @@ def build_course_schedule(csv_in, convert_to_allston=False, filename="some file"
         if cn not in schedule_d:
             schedule_d[cn] = []
 
-        schedule_d[cn].append(ct)
+        if ct not in schedule_d[cn]:
+            schedule_d[cn].append(ct)
 
     return schedule_d

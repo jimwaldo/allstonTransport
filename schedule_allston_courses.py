@@ -28,17 +28,21 @@ SOLVER_VERSION = 3
 assert SOLVER_VERSION in [1,2,3]
 
 # Weights that control the objective function
+MAJOR_UNIT = 1000000
+MINOR_UNIT = 100
+
 PARAMS =  {
-    'WEIGHT_BAD_CONFLICT_FACTOR' : 1000000,
+    'WEIGHT_BAD_CONFLICT_FACTOR' : MAJOR_UNIT,
 
     # area balance and instructor preferences/requirements
-    'WEIGHT_AVOID_COURSES_TU_3_TO_5' : 50000000,
-    'WEIGHT_AVOID_COURSES_FRIDAY' : 100,
-    'WEIGHT_AVOID_CS_COURSES_IN_FAC_LUNCH_OR_COLLOQ' : 1000,
-    'WEIGHT_DIFF_NUM_COURSES_DAY_OF_WEEK' : 100,
-    'WEIGHT_DIFF_NUM_COURSES_TIME_OF_DAY' : 100,
-    'WEIGHT_AVOID_SLOT_6' : 15000,
-    'WEIGHT_AVOID_SLOT_7' : 30000,
+    'WEIGHT_AVOID_COURSES_TU_3_TO_5' : MAJOR_UNIT * 500,
+    'WEIGHT_FAVOR_COURSES_TU_3_TO_5' : MAJOR_UNIT * -5,
+    'WEIGHT_AVOID_COURSES_FRIDAY' : MINOR_UNIT,
+    'WEIGHT_AVOID_CS_COURSES_IN_FAC_LUNCH_OR_COLLOQ' : MINOR_UNIT * 10,
+    'WEIGHT_DIFF_NUM_COURSES_DAY_OF_WEEK' : MINOR_UNIT,
+    'WEIGHT_DIFF_NUM_COURSES_TIME_OF_DAY' : MINOR_UNIT,
+    'WEIGHT_AVOID_SLOT_6' : MINOR_UNIT * 150,
+    'WEIGHT_AVOID_SLOT_7' : MINOR_UNIT * 300,
 
     # v1 params
     'WEIGHT_NO_LUNCH_PER_STUDENT' : 0.0001,
@@ -159,8 +163,14 @@ class Course:
                 objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_AVOID_SLOT_7']) 
 
             if asl[0]=="T" and asl[1] in ["4", "5"]:
-                if self.name not in non_FAS_instructor:
-                    # avoid any teaching on Tuesday 3pm-5pm for FAS instructors
+                if self.name in non_FAS_instructor:
+                    # for non-FAS faculty, favor teaching on Tuesday 3pm-5pm
+                    if asl[1] == "4":
+                        objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_FAVOR_COURSES_TU_3_TO_5'])
+                    else:                        
+                        objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_FAVOR_COURSES_TU_3_TO_5']*3)
+                else:
+                    # avoid teaching on Tuesday 3pm-5pm for FAS instructors
                     objective.SetCoefficient(self.vars_actualslots[asl], PARAMS['WEIGHT_AVOID_COURSES_TU_3_TO_5'])
 
             if asl[0]=="F":
@@ -171,6 +181,8 @@ class Course:
         
         # Add to objective function for bad course conflicts
         for other in conflicts_d.get(self.name, []):
+            assert is_cross_list_canonical(other), other
+
             if other not in courses and other not in sched_d:
                 # we're not scheduling the other course, so we can ignore it
                 continue
@@ -189,7 +201,7 @@ class Course:
                 conflict_vars_d[self.name] = {}
             assert other not in conflict_vars_d[self.name]
             conflict_vars_d[self.name][other] = v_conflicts
-
+            
             if other not in courses:
                 # the other course already has a fixed schedule.
                 # Go through each actual slot and see if it intersects with other course
@@ -948,7 +960,7 @@ if __name__ == '__main__':
         days = set()
         lengths = set()
         for ct in cts:
-            days.update(ct.days_of_week())
+            days.update(ct.days_of_week(separator=None))
             (a,b) = ct.time_as_interval()
             lengths.add(int(b-a))
         print("  days are %s and lengths in mins are %s"%(days,lengths))
