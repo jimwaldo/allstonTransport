@@ -49,6 +49,44 @@ ALLSTON_MEETING_TIMES = {
     (2,2) : ALLSTON_MEETING_TIMES_TWICE_PER_WEEK_TWO_SLOTS, # Twice per week, two slots
     }
 
+CAMBRIDGE_MEETING_TIMES_ONCE_PER_WEEK_ONE_SLOT = (
+    ("M1",),("M2",),("M3",),("M4",),("M5",),("M6",),("M7",),
+    ("T1",),("T2",),("T3",),("T4",),("T5",),("T6",),("T7",),
+    ("W1",),("W2",),("W3",),("W4",),("W5",),("W6",),("W7",),
+    ("R1",),("R2",),("R3",),("R4",),("R5",),("R6",),("R7",),
+    ("F1",),("F2",),("F3",),("F4",),("F5",),("F6",),("F7",))
+
+CAMBRIDGE_MEETING_TIMES_ONCE_PER_WEEK_TWO_SLOTS = (
+    ("M1","M2"),("M3","M4"),("M5","M6"),("M6","M7"),
+    ("T1","T2"),("T3","T4"),("T5","T6"),("T6","T7"),
+    ("W1","W2"),("W3","W4"),("W5","W6"),("W6","W7"),
+    ("R1","R2"),("R3","R4"),("R5","R6"),("R6","R7"),
+    ("F1","F2"),("F3","F4"),("F5","F6"),("F6","F7"))
+
+CAMBRIDGE_MEETING_TIMES_TWICE_PER_WEEK = (
+    ("M1","W1"),("M2","W2"),("M3","W3"),("M4","W4"),("M5","W5"),("M6","W6"),("M7","W7"),
+    ("W1","F1"),("W2","F2"),("W3","F3"),("W4","F4"),("W5","F5"),("W6","F6"),("W7","F7"),
+    ("M1","F1"),("M2","F2"),("M3","F3"),("M4","F4"),("M5","F5"),("M6","F6"),("M7","F7"),
+    ("T1","R1"),("T2","R2"),("T3","R3"),("T4","R4"),("T5","R5"),("T6","R6"),("T7","R7"))
+
+CAMBRIDGE_MEETING_TIMES_TWICE_PER_WEEK_TWO_SLOTS = (
+    ("M1","M2","W1","W2"),("M3","M4","W3","W4"),("M5","M6","W5","W6"),
+    ("W1","W2","F1","F2"),("W3","W4","F3","F4"),("W5","W6","F5","F6"),
+    ("M1","M2","F1","F2"),("M3","M4","F3","F4"),("M5","M6","F5","F6"),
+    ("T1","T2","R1","R2"),("T3","T4","R3","R4"),("T5","T6","R5","R6"))
+
+CAMBRIDGE_MEETING_TIMES_THRICE_PER_WEEK = (
+    ("M1","W1","F1"),("M2","W2","F2"),("M3","W3","F3"),
+    ("M4","W4","F4"),("M5","W5","F5"),("M6","W6","F6"),("M7","W7","F7"))
+
+CAMBRIDGE_MEETING_TIMES = {
+    (1,1) : CAMBRIDGE_MEETING_TIMES_ONCE_PER_WEEK_ONE_SLOT,   # Once per week, one slot
+    (2,1) : CAMBRIDGE_MEETING_TIMES_TWICE_PER_WEEK,           # Twice per week, one slot
+    (3,1) : CAMBRIDGE_MEETING_TIMES_THRICE_PER_WEEK,          # Thrice per week, one slot
+    (1,2) : CAMBRIDGE_MEETING_TIMES_ONCE_PER_WEEK_TWO_SLOTS,  # Once per week, two slots
+    (2,2) : CAMBRIDGE_MEETING_TIMES_TWICE_PER_WEEK_TWO_SLOTS, # Twice per week, two slots
+    }
+
 CAMBRIDGE_SLOT_TIMES = {
     1: ("09:00","10:15"),
     2: ("10:30","11:45"),
@@ -82,6 +120,19 @@ def _assert_is_slot(s):
     if len(s) > 2:
         assert len(s) == 3
         assert s[2] == 'a'
+
+def is_allston_slot(s):
+    _assert_is_slot(s)
+    return len(s) == 3
+
+def is_allston_meeting_time(mt):
+    is_allston = is_allston_slot(mt[0])
+
+    # Check that all slots are consistent
+    for s in mt:
+        assert is_allston_slot(s) == is_allston
+
+    return is_allston
 
 def meeting_time_is_tu_th(mt):
     _assert_is_meeting_time(mt)
@@ -127,9 +178,13 @@ def meeting_time_to_course_time(mt):
     times = list(set(range(1,8)) & set([int(s[1]) for s in mt]))
 
     assert (max(times) - min(times)) in [0,1]
-    
-    start_time = ALLSTON_SLOT_TIMES[min(times)][0]
-    end_time = ALLSTON_SLOT_TIMES[max(times)][1]
+
+    slot_times = CAMBRIDGE_SLOT_TIMES
+    if is_allston_meeting_time(mt):
+        slot_times = ALLSTON_SLOT_TIMES
+        
+    start_time = slot_times[min(times)][0]
+    end_time = slot_times[max(times)][1]
     return sct.course_time(start_time,
                            end_time,
                            "M" in days,
