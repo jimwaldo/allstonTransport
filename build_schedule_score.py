@@ -246,7 +246,7 @@ def build_student_schedules(enroll_d, sched_d):
         
     return ss_d
 
-def compute_conflict_score(conflicts_d, sched_d):
+def compute_conflict_score(conflicts_d, sched_d, courses_to_count=None,print_conflicts=True):
     score = 0
 
     conflict_output_d = {}
@@ -263,16 +263,22 @@ def compute_conflict_score(conflicts_d, sched_d):
             if cn2 not in sched_d:
                 #warnings.warn("Course %s is not offered in the schedule"%cn2)
                 continue
+
+            if courses_to_count and not (cn1 in courses_to_count or cn2 in courses_to_count):
+                # don't bother counting conflicts between cn1 and cn2
+                continue
             
             # Let's see if cn1 and cn2 conflict
-            if weight > 0 and sct.courses_conflict(sched_d[cn1], sched_d[cn2]) and (will_be_allston_course_canonical_cn(cn1) or will_be_allston_course_canonical_cn(cn2)):
-                s = "%s and %s conflict (weight %s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2]))
+            if weight > 0 and sct.courses_conflict(sched_d[cn1], sched_d[cn2]):
+                s = "  %-10s and %-10s conflict (weight %3s)! %s and %s"%(cn1,cn2,weight,";".join(str(e) for e in sched_d[cn1]),";".join(str(e) for e in sched_d[cn2]))
                 conflict_output_d[s] = int(weight)
                 score += float(weight)
 
     # sort and print conflicts
-    for s in sorted(conflict_output_d.keys(), key= lambda k: conflict_output_d[k]):
-        print(s)
+    if print_conflicts:
+        print("Conflicts")
+        for s in sorted(conflict_output_d.keys(), key= lambda k: conflict_output_d[k]):
+            print(s)
     
     return score
             
@@ -464,13 +470,13 @@ def simple_score(d):
             5.4*nl[5] + 4.3*nl[4] + 3.2*nl[3] + 2.1 * nl[2] + nl[1] + sum([day[1] for day in d['transport_days'].values()]),
             )
 
-def build_schedule_score(sched_d, conflicts_d, enroll_d):
+def build_schedule_score(sched_d, conflicts_d, enroll_d, courses_to_count = None, print_conflicts=True):
     # Now get the times for the schedules.
     times_d = build_student_schedules(enroll_d, sched_d)
 
 
     # Now compute the conflict score for the schedule
-    conflict_score = compute_conflict_score(conflicts_d, sched_d)
+    conflict_score = compute_conflict_score(conflicts_d, sched_d, courses_to_count, print_conflicts)
     
     # Now compute the number of round trips
     (rt_d, rt_blame) = count_round_trips(times_d, enroll_d)
