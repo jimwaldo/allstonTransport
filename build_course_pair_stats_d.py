@@ -262,7 +262,7 @@ class course_stats(object):
     def is_large(self):
         # Course is large if it had more than 100 students in at least 2 terms
         # Also have some hard coded exceptions
-        if self.cn in ['COMPSCI 20', 'COMPSCI 109A', 'COMPSCI 109B', 'APPHY 50A', 'APPHY 50B']:
+        if self.cn in ['COMPSCI 20', 'COMPSCI 109A', 'COMPSCI 109B', 'APPHY 50A', 'APPHY 50B', 'ECON 1017', 'ECON 1420', 'GOV 1280', 'GOV 1790']:
             return True
 
         if self.cn in no_lecture_courses:
