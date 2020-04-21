@@ -436,12 +436,12 @@ class Solution(object):
     Represents a solution, and provides enough info to try new "child solutions"
     i.e., solutions with additional constraints to avoid problematic course scheduling
     """
-    def __init__(self, courses, constraints, sched_d, conflicts_d, enroll_d, courses_to_schedule_d, parent=None, was_rand=False,history=""):
+    def __init__(self, courses, constraints, sched_d, conflicts_d, enroll_d, courses_to_schedule_d, parent=None, was_rand=False,history="",large_courses={}):
         self.parent = parent
         self.was_rand = was_rand
         self.history = history
         self.courses_to_mt_d = {cn : courses[cn].solution_meeting_time() for cn in courses}
-        (self.score, rt_blame, lunch_blame) = schedule_score.build_schedule_score(make_sched_d_from_solution(sched_d, self.courses_to_mt_d), conflicts_d, enroll_d, courses_to_count = courses_to_schedule_d, print_conflicts = False)
+        (self.score, rt_blame, lunch_blame) = schedule_score.build_schedule_score(make_sched_d_from_solution(sched_d, self.courses_to_mt_d), conflicts_d, enroll_d, courses_to_count = courses_to_schedule_d, print_conflicts = False, large_courses = large_courses)
         self.simple_score = self.score['simple_score']
         self.constraints = constraints
 
@@ -469,18 +469,18 @@ class Solution(object):
         self.child_constraints = [x for x in cc if x]
 
 
-def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
+def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d,large_courses):
     (solver,courses) = solve_schedule_loop(conflicts_d, sched_d, courses_to_schedule_d, enroll_d)
     
     # For version 3 of the solver, we will find a solution, and then try to incrementally find a better one.
-    current_best_soln = Solution(courses, [], sched_d, conflicts_d, enroll_d, courses_to_schedule_d)
+    current_best_soln = Solution(courses, [], sched_d, conflicts_d, enroll_d, courses_to_schedule_d,large_courses = large_courses)
     pending = [current_best_soln]
     loop_count = 0
 
     print("Call %s is new best: score %s"%(loop_count,current_best_soln.simple_score))
 
     loop_start = datetime.datetime.now()
-    time_limit = datetime.timedelta(minutes=3)
+    time_limit = datetime.timedelta(minutes=0.15)
     print("Looking for a good solution, will run for %s"%time_limit)
     while pending:
         if (datetime.datetime.now() - loop_start) > time_limit:
@@ -510,7 +510,7 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
                 continue
             
             (solver,courses) = res
-            csoln = Solution(courses, child_cs, sched_d, conflicts_d, enroll_d,courses_to_schedule_d, parent=s,history="child index %s"%child_index)
+            csoln = Solution(courses, child_cs, sched_d, conflicts_d, enroll_d,courses_to_schedule_d, parent=s,history="child index %s"%child_index,large_courses = large_courses)
             child_index += 1
 
             print("    %s:%s"%(loop_count,csoln.simple_score))
@@ -530,7 +530,7 @@ def solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d):
         
     return current_best_soln.courses_to_mt_d
     
-def output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d):
+def output_schedule_brief(cout, courses_to_schedule_d, courses_to_mt_d, large_only = False):
     """
     Output a brief version of the schedule, suitable for the Balance tool
     """
@@ -589,6 +589,7 @@ if __name__ == '__main__':
         print('Usage: schedule_courses <bad_course_conflicts.csv> <schedule.csv> <multi-year-enrollment-data.csv> [-courses <courses_to_schedule.csv>] [-allallston] [-out <output_file.csv>] [-print AREA | -registrar]')
         print('  bad_course_conflicts lists the courses that would be bad to schedule at the same time, including a weight of how bad the conflict is')
         print('  schedule.csv is an existing schedule of Harvard courses, both Cambridge and Allston courses. ')
+        print('  -large-courses is optional, but if provided will be the list of the large courses (used for output and cost computation)')
         print('  -courses is optional, but if provided will be the list of courses to schedule')
         print('  -allallston is optional, but if present will add all Allston courses to the list of courses to be scheduled')
         print('  output_file.csv is an output file of schedule times.')
@@ -623,6 +624,7 @@ if __name__ == '__main__':
 
     courses_to_schedule_file = process_flag_param_arg(args, "-courses")
     output_file = process_flag_param_arg(args, "-out")
+    large_courses_file = process_flag_param_arg(args, "-large-courses")
     print_area = process_flag_param_arg(args, "-print")
     registrar_output = process_flag_arg(args, "-registrar")
     all_allston = process_flag_arg(args, "-allallston")
@@ -672,6 +674,23 @@ if __name__ == '__main__':
                 if a is not None:
                     courses_to_schedule_d[cn] = a
 
+    large_courses = { }
+    if large_courses_file is not None:
+        # Read in the large courses file
+        fin = open(large_courses_file, 'r')
+        cin = csv.reader(fin)
+        # discard headers
+        h = next(cin)
+        for l in cin:
+            cn = l[0]
+            # Check we can parse the course name
+            sct.parse_canonical_course_name(cn)
+
+            assert is_cross_list_canonical(cn)
+
+            large_courses[cn] = True
+
+        fin.close()
     
     if courses_to_schedule_file is not None:
         # Read in the courses that we need to find slots for.
@@ -698,7 +717,7 @@ if __name__ == '__main__':
     for cn in courses_to_schedule_d:
          del sched_d[cn]
     
-    courses_to_mt_d = solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d)
+    courses_to_mt_d = solve_schedule(conflicts_d, sched_d, courses_to_schedule_d, enroll_d,large_courses=large_courses)
 
     if output_file:
         # Output the combined schedule to the output file
@@ -713,7 +732,7 @@ if __name__ == '__main__':
 
 
     output_sched_d = make_sched_d_from_solution(sched_d, courses_to_mt_d)
-    (res, rt_blame, lunch_blame) = schedule_score.build_schedule_score(output_sched_d, conflicts_d, enroll_d, courses_to_count = courses_to_schedule_d, print_conflicts = True)
+    (res, rt_blame, lunch_blame) = schedule_score.build_schedule_score(output_sched_d, conflicts_d, enroll_d, courses_to_count = courses_to_schedule_d, print_conflicts = True, large_courses=large_courses)
     print(json.dumps(res, sort_keys=False))
 
     build_allston_graphs.create_graphs(res)
