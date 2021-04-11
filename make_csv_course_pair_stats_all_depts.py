@@ -56,7 +56,7 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules):
         cn1num = course_stats_d[cn1].num_students
         cn2num = course_stats_d[cn2].num_students
 
-        if n > 200 or (n > 50 and (n/cn1num > 0.5 and n/cn2num > 0.5)): # printAll or (n > 40 and stats.in_allston):
+        if n > 200 or (n > 50 and n/cn1num > 0.4): # printAll or (n > 40 and stats.in_allston):
             count += 1
 
 
