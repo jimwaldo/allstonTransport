@@ -126,8 +126,9 @@ def write_course_pair_stats_csv(course_pair_stats_d, course_stats_d, schedules):
             if is_candidate_bad_conflict:
                 count_candidate += 1
 
-                
-            if prop_cn1_spring == 0.0 or prop_cn2_spring == 0.0:
+
+            # ONLY INCLUDE COURSES THAT HAVE BEEN TAUGHT AT LEAST ONCE IN THE FALL
+            if prop_cn1_fall == 0.0 or prop_cn2_fall == 0.0:
                 continue
 
             if bc_score < 0.2:
