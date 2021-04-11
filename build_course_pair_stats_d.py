@@ -163,7 +163,7 @@ class course_pair_stats(object):
     """
     A class that holds information about a pair of courses and when students took them.
     """
-    def __init__(self, cn1, cn2, in_allston):
+    def __init__(self, cn1, cn2, cn1_in_allston, cn2_in_allston):
         self.cn1 = cn1 
         self.cn2 = cn2 
         assert cn1 < cn2, "%s not less than %s"%(cn1,cn2)
@@ -171,8 +171,11 @@ class course_pair_stats(object):
         assert is_cross_list_canonical(cn1)
         assert is_cross_list_canonical(cn2)
 
+        self.cn1_in_allston = cn1_in_allston
+        self.cn2_in_allston = cn2_in_allston
+        
         # Is at least one of the courses to be in allston?
-        self.in_allston = in_allston
+        self.in_allston = cn1_in_allston or cn2_in_allston
         
         # Number of students that took this pair of courses in their career
         self.num_students = 0
@@ -280,7 +283,9 @@ def build_career_sched(csv_in, colindex):
     :return: ???
     """
     st_sched_d = {}
+    count = 0
     for l in csv_in:
+        count = count+1
         huid = l[colindex["HUID"]]
         concentration = l[colindex["CONCENTRATION"]]
         term = l[colindex["TERM"]]
@@ -302,7 +307,8 @@ def build_career_sched(csv_in, colindex):
         cn = canonical_course_name(subject, catalog)
         cn = cross_list_canonical(cn)
         car.add_course(cn, term)
-                                
+
+    print("Total enrollment entries: ",count)
     return st_sched_d
 
 
@@ -330,8 +336,10 @@ def build_course_pair_stats_d(st_sched_d):
                 if cp not in course_pair_stats_d:
                     (subj1, cat1) = parse_canonical_course_name(cp[0])
                     (subj2, cat2) = parse_canonical_course_name(cp[1])
-                    in_allston = will_be_allston_course_subj_catalog(subj1, cat1) or will_be_allston_course_subj_catalog(subj2, cat2)
-                    course_pair_stats_d[cp] = course_pair_stats(cp[0], cp[1], in_allston)
+                    cn1_in_allston = will_be_allston_course_subj_catalog(subj1, cat1)
+                    cn2_in_allston = will_be_allston_course_subj_catalog(subj2, cat2)
+                    in_allston = cn1_in_allston or cn2_in_allston
+                    course_pair_stats_d[cp] = course_pair_stats(cp[0], cp[1], cn1_in_allston, cn2_in_allston)
 
                 stats = course_pair_stats_d[cp]
                 stats.count_student(tp[0], tp[1])
